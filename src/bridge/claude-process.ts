@@ -10,14 +10,33 @@ export interface ClaudeMessage {
   result?: unknown;
 }
 
+export interface SessionInfo {
+  sessionId: string | null;
+  messageCount: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCostUsd: number;
+  startTime: Date | null;
+  model: string | null;
+}
+
 interface StreamMessage {
   type: string;
   subtype?: string;
+  session_id?: string;
+  model?: string;
   message?: {
     content?: Array<{ type: string; text?: string }>;
   };
   result?: string;
   duration_ms?: number;
+  total_cost_usd?: number;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+  };
 }
 
 export class ClaudeProcess extends EventEmitter {
@@ -28,6 +47,15 @@ export class ClaudeProcess extends EventEmitter {
   private claudePath: string;
   private outputBuffer = '';
   private currentResponse = '';
+
+  // 会话信息追踪
+  private sessionId: string | null = null;
+  private messageCount = 0;
+  private totalInputTokens = 0;
+  private totalOutputTokens = 0;
+  private totalCostUsd = 0;
+  private startTime: Date | null = null;
+  private model: string | null = null;
 
   constructor(config: ClaudeConfig) {
     super();
@@ -43,6 +71,15 @@ export class ClaudeProcess extends EventEmitter {
 
     console.log('[Claude] 启动持久进程...');
     console.log('[Claude] 工作目录:', this.config.workingDirectory);
+
+    // 重置会话信息
+    this.sessionId = null;
+    this.messageCount = 0;
+    this.totalInputTokens = 0;
+    this.totalOutputTokens = 0;
+    this.totalCostUsd = 0;
+    this.startTime = new Date();
+    this.model = null;
 
     const args = [
       '--dangerously-skip-permissions',
@@ -104,6 +141,8 @@ export class ClaudeProcess extends EventEmitter {
       case 'system':
         if (msg.subtype === 'init') {
           console.log('[Claude] 会话初始化完成');
+          if (msg.session_id) this.sessionId = msg.session_id;
+          if (msg.model) this.model = msg.model;
         }
         break;
 
@@ -117,6 +156,17 @@ export class ClaudeProcess extends EventEmitter {
 
       case 'result':
         console.log('[Claude] 回复完成, 耗时:', msg.duration_ms, 'ms');
+
+        // 更新会话统计
+        this.messageCount++;
+        if (msg.session_id) this.sessionId = msg.session_id;
+        if (msg.total_cost_usd) this.totalCostUsd = msg.total_cost_usd;
+        if (msg.usage) {
+          this.totalInputTokens += (msg.usage.input_tokens || 0) +
+                                   (msg.usage.cache_read_input_tokens || 0) +
+                                   (msg.usage.cache_creation_input_tokens || 0);
+          this.totalOutputTokens += msg.usage.output_tokens || 0;
+        }
 
         // 发送完整响应
         if (this.currentResponse) {
@@ -216,5 +266,17 @@ export class ClaudeProcess extends EventEmitter {
 
   getIsBusy(): boolean {
     return this.isBusy;
+  }
+
+  getSessionInfo(): SessionInfo {
+    return {
+      sessionId: this.sessionId,
+      messageCount: this.messageCount,
+      totalInputTokens: this.totalInputTokens,
+      totalOutputTokens: this.totalOutputTokens,
+      totalCostUsd: this.totalCostUsd,
+      startTime: this.startTime,
+      model: this.model,
+    };
   }
 }

@@ -61,14 +61,16 @@ export class TelegramBotClient extends EventEmitter {
         this.sendMessage(chatId,
           '🤖 Claude Code 远程控制\n\n' +
           '可用命令:\n' +
+          '/session - 查看会话信息\n' +
           '/status - 查看状态\n' +
           '/stop - 停止当前任务\n' +
-          '/restart - 重启 Claude\n\n' +
+          '/restart - 重启 Claude（新会话）\n\n' +
           '请先输入密码进行验证。'
         );
         this.pendingAuth.add(chatId);
         break;
 
+      case 'session':
       case 'status':
       case 'stop':
       case 'restart':

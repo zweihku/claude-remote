@@ -74,6 +74,25 @@ export class Bridge {
           );
           break;
 
+        case 'session':
+          const info = this.claude.getSessionInfo();
+          const uptime = info.startTime
+            ? Math.floor((Date.now() - info.startTime.getTime()) / 1000 / 60)
+            : 0;
+          await this.telegram.sendMessage(
+            chatId,
+            `📊 <b>会话信息</b>\n\n` +
+            `<b>Session ID:</b>\n<code>${info.sessionId || '未初始化'}</code>\n\n` +
+            `<b>模型:</b> ${info.model || '未知'}\n` +
+            `<b>消息数:</b> ${info.messageCount}\n` +
+            `<b>运行时间:</b> ${uptime} 分钟\n\n` +
+            `<b>Token 用量:</b>\n` +
+            `  输入: ${info.totalInputTokens.toLocaleString()}\n` +
+            `  输出: ${info.totalOutputTokens.toLocaleString()}\n\n` +
+            `<b>累计费用:</b> $${info.totalCostUsd.toFixed(4)}`
+          );
+          break;
+
         case 'stop':
           this.claude.forceStop();
           this.messageQueue = [];
@@ -83,7 +102,7 @@ export class Bridge {
         case 'restart':
           this.claude.restart();
           this.messageQueue = [];
-          await this.telegram.sendMessage(chatId, '🔄 Claude 已重置');
+          await this.telegram.sendMessage(chatId, '🔄 Claude 已重置（新会话）');
           break;
       }
     });
