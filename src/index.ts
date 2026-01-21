@@ -1,10 +1,13 @@
 import { loadConfig, initConfig } from './config.js';
 import { Bridge } from './bridge/index.js';
+import { logger } from './utils/logger.js';
 
 export { loadConfig, initConfig } from './config.js';
 export { Bridge } from './bridge/index.js';
 export { ClaudeProcess } from './bridge/claude-process.js';
 export { TelegramBotClient } from './telegram/bot.js';
+export * from './types.js';
+export * from './constants.js';
 
 export function main(args: string[]): void {
   // 解析命令行参数

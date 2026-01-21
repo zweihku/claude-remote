@@ -1,14 +1,15 @@
+/**
+ * Telegram Bot 客户端
+ */
+
 import TelegramBot from 'node-telegram-bot-api';
 import { EventEmitter } from 'events';
 import type { TelegramConfig } from '../config.js';
+import { TELEGRAM, LOG_TAGS } from '../constants.js';
+import { logger } from '../utils/logger.js';
+import { splitText } from '../utils/text.js';
 
-const MAX_MESSAGE_LENGTH = 4000;
-
-export interface TelegramBotEvents {
-  message: (chatId: number, text: string) => void;
-  command: (chatId: number, command: string, args: string) => void;
-  error: (err: Error) => void;
-}
+const TAG = LOG_TAGS.TELEGRAM;
 
 export class TelegramBotClient extends EventEmitter {
   private bot: TelegramBot;
@@ -19,15 +20,15 @@ export class TelegramBotClient extends EventEmitter {
   constructor(config: TelegramConfig) {
     super();
     this.config = config;
-    console.log('[TG] Initializing bot...');
+    logger.info(TAG, 'Initializing bot...');
     this.bot = new TelegramBot(config.botToken, { polling: true });
     this.setupHandlers();
-    console.log('[TG] Bot initialized, polling started');
+    logger.info(TAG, 'Bot initialized, polling started');
   }
 
   private setupHandlers(): void {
     this.bot.on('message', (msg) => {
-      console.log('[TG] Received message:', msg.chat.id, msg.text?.slice(0, 50));
+      logger.debug(TAG, 'Received message:', msg.chat.id, msg.text?.slice(0, 50));
       const chatId = msg.chat.id;
       const text = msg.text || '';
 
@@ -45,12 +46,12 @@ export class TelegramBotClient extends EventEmitter {
       }
 
       // 已认证，转发消息
-      console.log('[TG] Forwarding message to Claude:', text.slice(0, 50));
+      logger.info(TAG, 'Forwarding message to Claude:', text.slice(0, 50));
       this.emit('message', chatId, text);
     });
 
     this.bot.on('polling_error', (err) => {
-      console.error('[TG] Polling error:', err.message);
+      logger.error(TAG, 'Polling error:', err.message);
       this.emit('error', err);
     });
   }
@@ -97,8 +98,10 @@ export class TelegramBotClient extends EventEmitter {
     if (text === this.config.authPassword) {
       this.authenticatedChats.add(chatId);
       this.pendingAuth.delete(chatId);
+      logger.info(TAG, 'User authenticated:', chatId);
       this.sendMessage(chatId, '✅ 验证成功！现在可以开始使用了。\n\n发送任意文本作为 Claude 的输入指令。');
     } else {
+      logger.warn(TAG, 'Authentication failed for:', chatId);
       this.sendMessage(chatId, '❌ 密码错误，请重试。');
     }
   }
@@ -107,7 +110,7 @@ export class TelegramBotClient extends EventEmitter {
     if (!text) return;
 
     // 分片发送长消息
-    const chunks = this.splitMessage(text);
+    const chunks = splitText(text, TELEGRAM.MAX_MESSAGE_LENGTH);
 
     for (let i = 0; i < chunks.length; i++) {
       let chunk = chunks[i];
@@ -125,37 +128,10 @@ export class TelegramBotClient extends EventEmitter {
         try {
           await this.bot.sendMessage(chatId, chunk);
         } catch (innerErr) {
-          console.error('发送消息失败:', innerErr);
+          logger.error(TAG, '发送消息失败:', innerErr);
         }
       }
     }
-  }
-
-  private splitMessage(text: string): string[] {
-    if (text.length <= MAX_MESSAGE_LENGTH) {
-      return [text];
-    }
-
-    const chunks: string[] = [];
-    let remaining = text;
-
-    while (remaining.length > 0) {
-      if (remaining.length <= MAX_MESSAGE_LENGTH) {
-        chunks.push(remaining);
-        break;
-      }
-
-      // 尝试在换行处分割
-      let splitIndex = remaining.lastIndexOf('\n', MAX_MESSAGE_LENGTH);
-      if (splitIndex === -1 || splitIndex < MAX_MESSAGE_LENGTH / 2) {
-        splitIndex = MAX_MESSAGE_LENGTH;
-      }
-
-      chunks.push(remaining.slice(0, splitIndex));
-      remaining = remaining.slice(splitIndex).trimStart();
-    }
-
-    return chunks;
   }
 
   async broadcast(text: string): Promise<void> {
@@ -169,6 +145,7 @@ export class TelegramBotClient extends EventEmitter {
   }
 
   stop(): void {
+    logger.info(TAG, 'Stopping bot...');
     this.bot.stopPolling();
   }
 }
