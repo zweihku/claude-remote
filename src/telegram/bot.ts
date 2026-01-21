@@ -60,17 +60,30 @@ export class TelegramBotClient extends EventEmitter {
     switch (command) {
       case 'start':
         this.sendMessage(chatId,
-          '🤖 Claude Code 远程控制\n\n' +
-          '可用命令:\n' +
-          '/session - 查看会话信息\n' +
+          '🤖 <b>Claude Code 远程控制</b>\n\n' +
+          '<b>会话管理:</b>\n' +
+          '/new [名称] [目录] - 创建新会话\n' +
+          '/switch &lt;ID|名称&gt; - 切换会话\n' +
+          '/list - 列出所有会话\n' +
+          '/close [ID] - 关闭会话\n' +
+          '/rename &lt;名称&gt; - 重命名当前会话\n\n' +
+          '<b>会话控制:</b>\n' +
+          '/session - 查看会话详情\n' +
           '/status - 查看状态\n' +
           '/stop - 停止当前任务\n' +
-          '/restart - 重启 Claude（新会话）\n\n' +
+          '/restart - 重启当前会话\n\n' +
           '请先输入密码进行验证。'
         );
         this.pendingAuth.add(chatId);
         break;
 
+      // 会话管理命令
+      case 'new':
+      case 'switch':
+      case 'list':
+      case 'close':
+      case 'rename':
+      // 原有命令
       case 'session':
       case 'status':
       case 'stop':
@@ -84,7 +97,13 @@ export class TelegramBotClient extends EventEmitter {
         break;
 
       default:
-        this.sendMessage(chatId, `❓ 未知命令: /${command}`);
+        // 未知命令也转发给 Bridge 处理
+        if (this.authenticatedChats.has(chatId)) {
+          this.emit('command', chatId, command, args);
+        } else {
+          this.sendMessage(chatId, '🔐 请先输入密码验证');
+          this.pendingAuth.add(chatId);
+        }
     }
   }
 

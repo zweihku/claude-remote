@@ -13,9 +13,15 @@ export interface ClaudeConfig {
   cliPath?: string;  // 可选的 Claude CLI 路径
 }
 
+export interface SessionConfigOptions {
+  maxSessions?: number;        // 最大会话数，默认 5
+  autoCreateDefault?: boolean; // 自动创建默认会话，默认 true
+}
+
 export interface Config {
   telegram: TelegramConfig;
   claude: ClaudeConfig;
+  session?: SessionConfigOptions;
 }
 
 const DEFAULT_CONFIG_PATH = path.join(os.homedir(), '.claude-tg-bridge.json');
@@ -28,6 +34,10 @@ const CONFIG_TEMPLATE: Config = {
   claude: {
     workingDirectory: process.cwd(),
     additionalArgs: [],
+  },
+  session: {
+    maxSessions: 5,
+    autoCreateDefault: true,
   },
 };
 
@@ -78,11 +88,21 @@ function validateConfig(config: Config): void {
     throw new Error('请配置 telegram.authPassword');
   }
   if (!config.claude?.workingDirectory) {
-    config.claude = config.claude || {};
+    config.claude = config.claude || {} as ClaudeConfig;
     config.claude.workingDirectory = process.cwd();
   }
   if (!config.claude?.additionalArgs) {
     config.claude.additionalArgs = [];
+  }
+  // 设置会话配置默认值
+  if (!config.session) {
+    config.session = {};
+  }
+  if (config.session.maxSessions === undefined) {
+    config.session.maxSessions = 5;
+  }
+  if (config.session.autoCreateDefault === undefined) {
+    config.session.autoCreateDefault = true;
   }
 }
 

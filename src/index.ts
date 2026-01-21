@@ -1,13 +1,14 @@
 import { loadConfig, initConfig } from './config.js';
 import { Bridge } from './bridge/index.js';
-import { logger } from './utils/logger.js';
 
 export { loadConfig, initConfig } from './config.js';
 export { Bridge } from './bridge/index.js';
 export { ClaudeProcess } from './bridge/claude-process.js';
 export { TelegramBotClient } from './telegram/bot.js';
+export { SessionManager } from './session/index.js';
 export * from './types.js';
 export * from './constants.js';
+export * from './session/types.js';
 
 export function main(args: string[]): void {
   // 解析命令行参数
@@ -76,7 +77,7 @@ function getArgValue(args: string[], longFlag: string, shortFlag: string): strin
 
 function printHelp(): void {
   console.log(`
-claude-tg-bridge - Telegram 远程控制 Claude Code CLI
+claude-tg-bridge - Telegram 远程控制 Claude Code CLI（多会话版）
 
 用法:
   claude-tg-bridge [选项]
@@ -84,7 +85,7 @@ claude-tg-bridge - Telegram 远程控制 Claude Code CLI
 选项:
   --init              生成配置文件模板
   -c, --config PATH   指定配置文件路径 (默认: ~/.claude-tg-bridge.json)
-  -d, --working-dir   指定 Claude 工作目录
+  -d, --working-dir   指定 Claude 默认工作目录
   -h, --help          显示帮助信息
 
 环境变量:
@@ -92,10 +93,18 @@ claude-tg-bridge - Telegram 远程控制 Claude Code CLI
   AUTH_PASSWORD       覆盖配置中的密码
   CLAUDE_WORKING_DIR  覆盖配置中的工作目录
 
+Telegram 命令:
+  /new [名称] [目录]  创建新会话
+  /switch <ID|名称>   切换会话
+  /list              列出所有会话
+  /close [ID]        关闭会话
+  /session           查看当前会话详情
+  /status            查看状态
+
 示例:
   claude-tg-bridge --init                    # 生成配置模板
   claude-tg-bridge                           # 使用默认配置启动
-  claude-tg-bridge -d /path/to/project       # 指定工作目录
+  claude-tg-bridge -d /path/to/project       # 指定默认工作目录
 `);
 }
 
