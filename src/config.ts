@@ -10,6 +10,7 @@ export interface TelegramConfig {
 export interface ClaudeConfig {
   workingDirectory: string;
   additionalArgs: string[];
+  cliPath?: string;  // 可选的 Claude CLI 路径
 }
 
 export interface Config {

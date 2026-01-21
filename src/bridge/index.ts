@@ -1,12 +1,21 @@
+/**
+ * Bridge - 连接 Telegram 和 Claude CLI
+ */
+
 import type { Config } from '../config.js';
 import { ClaudeProcess } from './claude-process.js';
 import { TelegramBotClient } from '../telegram/bot.js';
+import { LOG_TAGS } from '../constants.js';
+import { logger } from '../utils/logger.js';
+import { formatNumber } from '../utils/text.js';
 import {
   formatClaudeMessage,
   formatStatus,
   formatError,
   formatNotification,
 } from './formatter.js';
+
+const TAG = LOG_TAGS.BRIDGE;
 
 export class Bridge {
   private config: Config;
@@ -54,7 +63,7 @@ export class Bridge {
 
   private setupTelegramHandlers(): void {
     this.telegram.on('message', async (chatId, text) => {
-      if (this.claude.getIsBusy()) {
+      if (this.claude.isBusy) {
         this.messageQueue.push(text);
         await this.telegram.sendMessage(chatId, '⏳ Claude 正在工作中，您的指令已排队');
         return;
@@ -64,56 +73,69 @@ export class Bridge {
     });
 
     this.telegram.on('command', async (chatId, command, _args) => {
-      switch (command) {
-        case 'status':
-          const busy = this.claude.getIsBusy() ? '🔄 处理中' : '💤 空闲';
-          await this.telegram.sendMessage(
-            chatId,
-            formatStatus(this.claude.getIsRunning(), this.config.claude.workingDirectory) +
-            `\n状态: ${busy}\n队列: ${this.messageQueue.length} 条指令`
-          );
-          break;
-
-        case 'session':
-          const info = this.claude.getSessionInfo();
-          const uptime = info.startTime
-            ? Math.floor((Date.now() - info.startTime.getTime()) / 1000 / 60)
-            : 0;
-          await this.telegram.sendMessage(
-            chatId,
-            `📊 <b>会话信息</b>\n\n` +
-            `<b>Session ID:</b>\n<code>${info.sessionId || '未初始化'}</code>\n\n` +
-            `<b>模型:</b> ${info.model || '未知'}\n` +
-            `<b>消息数:</b> ${info.messageCount}\n` +
-            `<b>运行时间:</b> ${uptime} 分钟\n\n` +
-            `<b>Token 用量:</b>\n` +
-            `  输入: ${info.totalInputTokens.toLocaleString()}\n` +
-            `  输出: ${info.totalOutputTokens.toLocaleString()}\n\n` +
-            `<b>累计费用:</b> $${info.totalCostUsd.toFixed(4)}`
-          );
-          break;
-
-        case 'stop':
-          this.claude.forceStop();
-          this.messageQueue = [];
-          await this.telegram.sendMessage(chatId, '⏹ Claude 已停止，队列已清空');
-          break;
-
-        case 'restart':
-          this.claude.restart();
-          this.messageQueue = [];
-          await this.telegram.sendMessage(chatId, '🔄 Claude 已重置（新会话）');
-          break;
-      }
+      await this.handleCommand(chatId, command);
     });
 
     this.telegram.on('error', (err) => {
-      console.error('Telegram error:', err.message);
+      logger.error(TAG, 'Telegram error:', err.message);
     });
   }
 
+  private async handleCommand(chatId: number, command: string): Promise<void> {
+    switch (command) {
+      case 'status':
+        await this.handleStatusCommand(chatId);
+        break;
+
+      case 'session':
+        await this.handleSessionCommand(chatId);
+        break;
+
+      case 'stop':
+        this.claude.forceStop();
+        this.messageQueue = [];
+        await this.telegram.sendMessage(chatId, '⏹ Claude 已停止，队列已清空');
+        break;
+
+      case 'restart':
+        this.claude.restart();
+        this.messageQueue = [];
+        await this.telegram.sendMessage(chatId, '🔄 Claude 已重置（新会话）');
+        break;
+    }
+  }
+
+  private async handleStatusCommand(chatId: number): Promise<void> {
+    const busy = this.claude.isBusy ? '🔄 处理中' : '💤 空闲';
+    await this.telegram.sendMessage(
+      chatId,
+      formatStatus(this.claude.isRunning, this.config.claude.workingDirectory) +
+      `\n状态: ${busy}\n队列: ${this.messageQueue.length} 条指令`
+    );
+  }
+
+  private async handleSessionCommand(chatId: number): Promise<void> {
+    const info = this.claude.getSessionInfo();
+    const uptime = info.startTime
+      ? Math.floor((Date.now() - info.startTime.getTime()) / 1000 / 60)
+      : 0;
+
+    await this.telegram.sendMessage(
+      chatId,
+      `📊 <b>会话信息</b>\n\n` +
+      `<b>Session ID:</b>\n<code>${info.sessionId || '未初始化'}</code>\n\n` +
+      `<b>模型:</b> ${info.model || '未知'}\n` +
+      `<b>消息数:</b> ${info.messageCount}\n` +
+      `<b>运行时间:</b> ${uptime} 分钟\n\n` +
+      `<b>Token 用量:</b>\n` +
+      `  输入: ${formatNumber(info.totalInputTokens)}\n` +
+      `  输出: ${formatNumber(info.totalOutputTokens)}\n\n` +
+      `<b>累计费用:</b> $${info.totalCostUsd.toFixed(4)}`
+    );
+  }
+
   private async sendToClaude(chatId: number, text: string): Promise<void> {
-    if (!this.claude.getIsRunning()) {
+    if (!this.claude.isRunning) {
       await this.telegram.sendMessage(chatId, '⚠️ Claude 未运行，使用 /restart 启动');
       return;
     }
@@ -136,7 +158,11 @@ export class Bridge {
     }
 
     const nextMessage = this.messageQueue.shift()!;
-    await this.telegram.broadcast(`📋 处理队列: "${nextMessage.slice(0, 50)}${nextMessage.length > 50 ? '...' : ''}"`);
+    const preview = nextMessage.length > 50
+      ? nextMessage.slice(0, 50) + '...'
+      : nextMessage;
+
+    await this.telegram.broadcast(`📋 处理队列: "${preview}"`);
 
     try {
       await this.claude.sendMessage(nextMessage);
@@ -149,12 +175,13 @@ export class Bridge {
   }
 
   start(): void {
-    console.log('Bridge started, waiting for Telegram messages...');
-    console.log(`Working directory: ${this.config.claude.workingDirectory}`);
+    logger.info(TAG, 'Bridge started, waiting for Telegram messages...');
+    logger.info(TAG, 'Working directory:', this.config.claude.workingDirectory);
     this.claude.start();
   }
 
   stop(): void {
+    logger.info(TAG, 'Stopping bridge...');
     this.claude.stop();
     this.telegram.stop();
   }
