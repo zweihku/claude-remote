@@ -2,24 +2,32 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy only the packages needed for relay
-COPY packages/shared ./packages/shared
-COPY packages/relay ./packages/relay
+# Copy shared package
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/shared/src ./packages/shared/src
+COPY packages/shared/tsconfig.json ./packages/shared/
 
-# Create a minimal package.json for deployment
-RUN echo '{"name":"claude-remote-deploy","private":true,"workspaces":["packages/shared","packages/relay"]}' > package.json
+# Copy relay package
+COPY packages/relay/package.json ./packages/relay/
+COPY packages/relay/src ./packages/relay/src
+COPY packages/relay/public ./packages/relay/public
+COPY packages/relay/tsconfig.json ./packages/relay/
 
-# Install dependencies
+# Install and build shared
+WORKDIR /app/packages/shared
 RUN npm install
+RUN npm run build
 
-# Build shared first, then relay
-RUN cd packages/shared && npm run build
-RUN cd packages/relay && npm run build
-
-# Set working directory to relay
+# Install and build relay (link to shared)
 WORKDIR /app/packages/relay
+RUN npm install
+# Link shared package manually
+RUN rm -rf node_modules/@claude-remote/shared && \
+    mkdir -p node_modules/@claude-remote && \
+    ln -s /app/packages/shared node_modules/@claude-remote/shared
+RUN npm run build
 
-# Expose port (Railway uses PORT env var)
+# Expose port
 EXPOSE 3000
 
 # Start the relay server
