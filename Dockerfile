@@ -18,13 +18,14 @@ WORKDIR /app/packages/shared
 RUN npm install
 RUN npm run build
 
-# Install and build relay (link to shared)
+# Modify relay package.json to use local shared package
 WORKDIR /app/packages/relay
+RUN sed -i 's|"@claude-remote/shared": "\*"|"@claude-remote/shared": "file:../shared"|g' package.json
+
+# Install relay dependencies
 RUN npm install
-# Link shared package manually
-RUN rm -rf node_modules/@claude-remote/shared && \
-    mkdir -p node_modules/@claude-remote && \
-    ln -s /app/packages/shared node_modules/@claude-remote/shared
+
+# Build relay
 RUN npm run build
 
 # Expose port
