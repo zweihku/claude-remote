@@ -1,5 +1,5 @@
 // Pairing Constants
-export const PAIR_CODE_LENGTH = 8;
+export const PAIR_CODE_LENGTH = 4;
 export const PAIR_CODE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 
 // WebSocket Constants

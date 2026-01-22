@@ -556,7 +556,7 @@
   <div class="main">
     <!-- Setup Screen -->
     <div id="setupScreen" class="screen setup-screen active">
-      <div class="setup-screen__icon">⚡</div>
+      <div class="setup-screen__icon">☁️</div>
       <h1 class="setup-screen__title">Claude Remote</h1>
       <p class="setup-screen__subtitle">Control Claude CLI from your mobile device</p>
 
@@ -572,7 +572,7 @@
         </div>
 
         <button type="submit" class="btn-primary" id="startBtn">
-          Start Server
+          Connect
         </button>
       </form>
     </div>
@@ -645,8 +645,6 @@
     let sessions = [];
     let activeSessionId = null;
     let sessionMessages = {}; // Messages per session
-    let localIP = 'localhost';
-    const PORT = 4000;
 
     // DOM Elements
     const setupScreen = document.getElementById('setupScreen');
@@ -697,11 +695,11 @@
       `).join('');
     }
 
+    // Cloud server URL
+    const RELAY_SERVER = 'https://web-production-28761.up.railway.app';
+
     async function startConnection(event) {
       event.preventDefault();
-
-      // Get local IP first
-      localIP = await window.electronAPI.getLocalIP();
 
       // Use home directory if no dirs selected
       if (allowedDirs.length === 0) {
@@ -712,14 +710,10 @@
       startBtn.innerHTML = '<span class="loading"></span>';
 
       try {
-        // 1. Start embedded server
-        const serverResult = await window.electronAPI.startServer(PORT);
-        if (!serverResult.success) {
-          throw new Error(serverResult.error || 'Failed to start server');
-        }
+        // Connect to cloud relay server
+        const relayUrl = RELAY_SERVER.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
 
-        // 2. Start Claude service connecting to local server
-        const relayUrl = `http://localhost:${PORT}`;
+        // Start Claude service
         const claudeResult = await window.electronAPI.startClaude({
           relayUrl,
           allowedDirs
@@ -730,26 +724,25 @@
         }
 
         // Show pairing screen with mobile URL
-        mobileUrl.textContent = `http://${localIP}:${PORT}`;
+        mobileUrl.textContent = RELAY_SERVER;
         showScreen(pairingScreen);
 
       } catch (error) {
         alert('Error: ' + error.message);
         startBtn.disabled = false;
-        startBtn.textContent = 'Start Server';
+        startBtn.textContent = 'Connect';
       }
     }
 
     async function stopAndReset() {
       await window.electronAPI.stopClaude();
-      await window.electronAPI.stopServer();
       sessions = [];
       sessionMessages = {};
       activeSessionId = null;
       renderSessions();
       renderMessages();
       startBtn.disabled = false;
-      startBtn.textContent = 'Start Server';
+      startBtn.textContent = 'Connect';
       showScreen(setupScreen);
     }
 
