@@ -1,0 +1,1837 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0a0a0b">
+  <title>Claude Remote</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep: #0a0a0b;
+      --bg-primary: #121214;
+      --bg-elevated: #1a1a1e;
+      --bg-glass: rgba(26, 26, 30, 0.92);
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border-default: rgba(255, 255, 255, 0.1);
+      --border-focus: rgba(255, 138, 101, 0.4);
+
+      --text-primary: #fafafa;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --text-dim: #52525b;
+
+      --accent: #ff8a65;
+      --accent-soft: rgba(255, 138, 101, 0.15);
+      --accent-glow: rgba(255, 138, 101, 0.3);
+
+      --success: #4ade80;
+      --success-soft: rgba(74, 222, 128, 0.15);
+      --warning: #fbbf24;
+      --warning-soft: rgba(251, 191, 36, 0.15);
+      --error: #f87171;
+      --error-soft: rgba(248, 113, 113, 0.15);
+
+      --blue: #60a5fa;
+      --blue-soft: rgba(96, 165, 250, 0.15);
+      --purple: #a78bfa;
+      --purple-soft: rgba(167, 139, 250, 0.15);
+      --cyan: #22d3ee;
+      --cyan-soft: rgba(34, 211, 238, 0.15);
+      --emerald: #34d399;
+      --emerald-soft: rgba(52, 211, 153, 0.15);
+
+      --user-bubble: linear-gradient(135deg, #2d2d32 0%, #1f1f23 100%);
+      --claude-bubble: linear-gradient(135deg, rgba(255, 138, 101, 0.08) 0%, rgba(255, 138, 101, 0.03) 100%);
+
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+
+      --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+      --font-sans: 'DM Sans', -apple-system, sans-serif;
+
+      --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --keyboard-height: 0px;
+    }
+
+    html {
+      height: 100%;
+      height: -webkit-fill-available;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      height: 100vh;
+      height: 100dvh;
+      height: calc(var(--vh, 1vh) * 100);
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      position: fixed;
+      width: 100%;
+      top: 0;
+      left: 0;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      opacity: 0.03;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ==================== App Container ==================== */
+    .app-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-deep);
+      transition: transform 0.35s var(--ease-out-expo), opacity 0.35s var(--ease-out-expo);
+    }
+
+    .screen.hidden {
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    /* Slide transitions */
+    #session-list-screen.slide-left { transform: translateX(-30%); opacity: 0; }
+    #chat-screen.slide-right { transform: translateX(100%); opacity: 0; }
+    #chat-screen.slide-left { transform: translateX(-100%); }
+    #session-list-screen.slide-right { transform: translateX(30%); }
+
+    /* ==================== Pairing Screen ==================== */
+    #pairing-screen {
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+      animation: fadeIn 0.6s var(--ease-out-expo);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .logo-container {
+      position: relative;
+      margin-bottom: 24px;
+    }
+
+    .logo {
+      width: 72px;
+      height: 72px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      box-shadow: 0 0 0 1px var(--border-subtle), 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .logo-pulse {
+      position: absolute;
+      inset: -8px;
+      border: 2px solid var(--accent);
+      border-radius: 24px;
+      animation: logoPulse 2s ease-out infinite;
+      opacity: 0;
+    }
+
+    @keyframes logoPulse {
+      0% { transform: scale(0.95); opacity: 0.5; }
+      100% { transform: scale(1.1); opacity: 0; }
+    }
+
+    .brand {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .brand h1 {
+      font-family: var(--font-mono);
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .brand p {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .pair-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 320px;
+      box-shadow: 0 0 0 1px var(--border-subtle), 0 16px 48px rgba(0, 0, 0, 0.3);
+    }
+
+    .pair-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .pair-input-group {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    .pair-input {
+      width: 100%;
+      max-width: 160px;
+      height: 56px;
+      font-family: var(--font-mono);
+      font-size: 24px;
+      font-weight: 600;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 8px;
+      background: var(--bg-primary);
+      border: 2px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      transition: all 0.2s var(--ease-out-expo);
+      caret-color: var(--accent);
+    }
+
+    .pair-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-soft);
+    }
+
+    .pair-input::placeholder {
+      color: var(--text-muted);
+      opacity: 0.5;
+      letter-spacing: 4px;
+    }
+
+    .connect-btn {
+      width: 100%;
+      padding: 16px 24px;
+      font-family: var(--font-sans);
+      font-size: 15px;
+      font-weight: 600;
+      background: var(--accent);
+      color: var(--bg-deep);
+      border: none;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.2s var(--ease-out-expo);
+    }
+
+    .connect-btn:hover:not(:disabled) {
+      transform: scale(1.02);
+    }
+
+    .connect-btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .connect-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .status-text {
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .status-text.error { color: var(--error); }
+    .status-text.success { color: var(--success); }
+
+    /* ==================== Session List Screen ==================== */
+    #session-list-screen {
+      background: var(--bg-deep);
+    }
+
+    .list-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      padding-top: calc(16px + var(--safe-top));
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+
+    .list-header-title {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .list-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-btn {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 16px;
+    }
+
+    .header-btn:hover {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    .header-btn.danger:hover {
+      border-color: var(--error);
+      color: var(--error);
+      background: var(--error-soft);
+    }
+
+    .connection-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: var(--success-soft);
+      border-radius: 20px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--success);
+    }
+
+    .connection-badge.offline {
+      background: var(--error-soft);
+      color: var(--error);
+    }
+
+    .connection-badge.reconnecting {
+      background: var(--warning-soft);
+      color: var(--warning);
+    }
+
+    .connection-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .connection-badge.reconnecting .dot {
+      animation: blink 1s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .session-list-container {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 100px;
+    }
+
+    .session-list-container::-webkit-scrollbar {
+      width: 0;
+    }
+
+    /* Session item - WeChat style */
+    .session-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 20px;
+      background: transparent;
+      cursor: pointer;
+      transition: background 0.15s;
+      border-bottom: 1px solid var(--border-subtle);
+      position: relative;
+    }
+
+    .session-item:active {
+      background: var(--bg-elevated);
+    }
+
+    .session-item.current {
+      background: var(--accent-soft);
+    }
+
+    .session-item.current::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: var(--accent);
+    }
+
+    .session-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .session-avatar.color-0 { background: var(--accent-soft); }
+    .session-avatar.color-1 { background: var(--blue-soft); }
+    .session-avatar.color-2 { background: var(--purple-soft); }
+    .session-avatar.color-3 { background: var(--cyan-soft); }
+    .session-avatar.color-4 { background: var(--emerald-soft); }
+
+    .session-avatar-badge {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: var(--bg-deep);
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid var(--bg-deep);
+    }
+
+    .session-content {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .session-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .session-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .session-time {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+
+    .session-path {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .session-preview {
+      font-size: 13px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.4;
+    }
+
+    /* New session FAB */
+    .fab-new-session {
+      position: fixed;
+      bottom: calc(24px + var(--safe-bottom));
+      right: 20px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+      color: var(--bg-deep);
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(255, 138, 101, 0.4);
+      transition: all 0.2s var(--ease-spring);
+      z-index: 50;
+    }
+
+    .fab-new-session:hover {
+      transform: scale(1.05);
+    }
+
+    .fab-new-session:active {
+      transform: scale(0.95);
+    }
+
+    /* Empty state for list */
+    .list-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 60vh;
+      padding: 40px;
+      text-align: center;
+    }
+
+    .list-empty-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      opacity: 0.6;
+    }
+
+    .list-empty-text {
+      font-size: 15px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* ==================== Chat Screen ==================== */
+    #chat-screen {
+      background: var(--bg-deep);
+    }
+
+    .chat-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      padding-top: calc(12px + var(--safe-top));
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+      min-height: 56px;
+    }
+
+    .back-btn {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 20px;
+      flex-shrink: 0;
+      margin-left: -8px;
+    }
+
+    .back-btn:active {
+      transform: scale(0.9);
+    }
+
+    .chat-header-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .chat-header-name {
+      font-size: 16px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chat-header-path {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chat-header-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 12px;
+      flex-shrink: 0;
+    }
+
+    .chat-header-status.online {
+      background: var(--success-soft);
+      color: var(--success);
+    }
+
+    .chat-header-status.offline {
+      background: var(--error-soft);
+      color: var(--error);
+    }
+
+    .chat-header-status.reconnecting {
+      background: var(--warning-soft);
+      color: var(--warning);
+    }
+
+    .chat-header-status .dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .chat-header-status.reconnecting .dot {
+      animation: blink 1s ease-in-out infinite;
+    }
+
+    /* ==================== Messages ==================== */
+    .messages-container {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .messages {
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      scroll-behavior: smooth;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .messages::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .messages::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .messages::-webkit-scrollbar-thumb {
+      background: var(--border-default);
+      border-radius: 2px;
+    }
+
+    .message {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: var(--radius-lg);
+      line-height: 1.6;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+      font-size: 14px;
+      animation: messageIn 0.3s var(--ease-spring);
+      transform-origin: bottom;
+    }
+
+    @keyframes messageIn {
+      from { opacity: 0; transform: translateY(8px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: var(--user-bubble);
+      border: 1px solid var(--border-subtle);
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.claude {
+      align-self: flex-start;
+      background: var(--claude-bubble);
+      border: 1px solid rgba(255, 138, 101, 0.1);
+      border-bottom-left-radius: 4px;
+      position: relative;
+    }
+
+    .message.claude::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 12px;
+      bottom: 12px;
+      width: 2px;
+      background: var(--accent);
+      border-radius: 1px;
+      opacity: 0.5;
+    }
+
+    .message.system {
+      align-self: center;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 8px 16px;
+      font-family: var(--font-mono);
+    }
+
+    .message.system.error {
+      color: var(--error);
+    }
+
+    .message pre {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+      margin: 8px 0;
+      font-size: 12px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .message code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .message:not(pre) code {
+      background: rgba(255, 138, 101, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+
+    .typing-indicator {
+      display: none;
+      align-self: flex-start;
+      padding: 16px 20px;
+      background: var(--claude-bubble);
+      border: 1px solid rgba(255, 138, 101, 0.1);
+      border-radius: var(--radius-lg);
+      border-bottom-left-radius: 4px;
+      gap: 6px;
+    }
+
+    .typing-indicator.visible {
+      display: flex;
+      animation: messageIn 0.3s var(--ease-spring);
+    }
+
+    .typing-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: typingBounce 1.4s ease-in-out infinite;
+    }
+
+    .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes typingBounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-6px); opacity: 1; }
+    }
+
+    /* ==================== Input Area ==================== */
+    .input-wrapper {
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+      position: relative;
+      z-index: 10;
+      padding-bottom: var(--safe-bottom);
+    }
+
+    .input-area {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      padding: 12px 16px;
+    }
+
+    .input-container {
+      flex: 1;
+    }
+
+    .message-input {
+      width: 100%;
+      padding: 14px 18px;
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.4;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      color: var(--text-primary);
+      resize: none;
+      min-height: 48px;
+      max-height: 120px;
+      transition: all 0.2s var(--ease-out-expo);
+      caret-color: var(--accent);
+    }
+
+    .message-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-soft);
+    }
+
+    .message-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .send-btn {
+      width: 48px;
+      height: 48px;
+      background: var(--accent);
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s var(--ease-spring);
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(255, 138, 101, 0.3);
+    }
+
+    .send-btn:hover:not(:disabled) {
+      transform: scale(1.05);
+    }
+
+    .send-btn:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+
+    .send-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .send-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: var(--bg-deep);
+      transform: translateX(1px);
+    }
+
+    /* ==================== Empty Chat State ==================== */
+    .chat-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 40px;
+      text-align: center;
+    }
+
+    .chat-empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .chat-empty-text {
+      font-size: 14px;
+      color: var(--text-muted);
+      max-width: 240px;
+      line-height: 1.6;
+    }
+
+    /* Keyboard handling */
+    body.keyboard-open .input-wrapper {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+    }
+
+    /* Swipe delete action */
+    .session-item-wrapper {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .session-delete-action {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 80px;
+      background: var(--error);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 20px;
+      transform: translateX(100%);
+      transition: transform 0.2s;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Pairing Screen -->
+    <div class="screen" id="pairing-screen">
+      <div class="logo-container">
+        <div class="logo">⌘</div>
+        <div class="logo-pulse"></div>
+      </div>
+
+      <div class="brand">
+        <h1>Claude Remote</h1>
+        <p>连接你的桌面 Claude CLI</p>
+      </div>
+
+      <div class="pair-card">
+        <div class="pair-label">输入配对码</div>
+        <div class="pair-input-group">
+          <input type="text" class="pair-input" id="pair1" maxlength="4" autocomplete="off" autocapitalize="characters" inputmode="text" placeholder="····">
+        </div>
+        <button class="connect-btn" id="connect-btn" disabled>建立连接</button>
+      </div>
+
+      <p class="status-text" id="pairing-status">在桌面端获取 4 位配对码</p>
+    </div>
+
+    <!-- Session List Screen (WeChat style) -->
+    <div class="screen hidden" id="session-list-screen">
+      <div class="list-header">
+        <span class="list-header-title">Claude 会话</span>
+        <div class="list-header-actions">
+          <div class="connection-badge" id="list-connection-badge">
+            <span class="dot"></span>
+            <span id="list-connection-text">在线</span>
+          </div>
+          <button class="header-btn danger" id="disconnect-btn" title="断开连接">✕</button>
+        </div>
+      </div>
+
+      <div class="session-list-container" id="session-list"></div>
+
+      <button class="fab-new-session" id="new-session-btn" title="新建会话">+</button>
+    </div>
+
+    <!-- Chat Screen -->
+    <div class="screen hidden slide-right" id="chat-screen">
+      <div class="chat-header">
+        <button class="back-btn" id="back-btn">←</button>
+        <div class="chat-header-info">
+          <div class="chat-header-name" id="chat-header-name">默认会话</div>
+          <div class="chat-header-path" id="chat-header-path">~/</div>
+        </div>
+        <div class="chat-header-status online" id="chat-header-status">
+          <span class="dot"></span>
+          <span id="chat-status-text">在线</span>
+        </div>
+      </div>
+
+      <div class="messages-container">
+        <div class="messages" id="messages"></div>
+        <div class="typing-indicator" id="typing">
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+        </div>
+      </div>
+
+      <div class="input-wrapper" id="input-wrapper">
+        <div class="input-area">
+          <div class="input-container">
+            <textarea class="message-input" id="message-input" placeholder="输入消息..." rows="1"></textarea>
+          </div>
+          <button class="send-btn" id="send-btn">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== Viewport & Keyboard Handling ====================
+    function setViewportHeight() {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    }
+
+    setViewportHeight();
+    window.addEventListener('resize', setViewportHeight);
+    window.addEventListener('orientationchange', () => setTimeout(setViewportHeight, 100));
+
+    if (window.visualViewport) {
+      let pendingUpdate = false;
+
+      function updateViewport() {
+        pendingUpdate = false;
+        const viewport = window.visualViewport;
+        const keyboardHeight = window.innerHeight - viewport.height;
+
+        if (keyboardHeight > 100) {
+          document.body.classList.add('keyboard-open');
+          document.documentElement.style.setProperty('--keyboard-height', `${keyboardHeight}px`);
+          setTimeout(() => messagesContainer.scrollTop = messagesContainer.scrollHeight, 100);
+        } else {
+          document.body.classList.remove('keyboard-open');
+          document.documentElement.style.setProperty('--keyboard-height', '0px');
+        }
+      }
+
+      window.visualViewport.addEventListener('resize', () => {
+        if (!pendingUpdate) {
+          pendingUpdate = true;
+          requestAnimationFrame(updateViewport);
+        }
+      });
+    }
+
+    // ==================== Configuration ====================
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const config = {
+      httpUrl: window.location.origin,
+      wsUrl: `${wsProtocol}//${window.location.host}`
+    };
+
+    const STORAGE_KEY = 'claude_remote_session';
+    const MESSAGES_KEY = 'claude_remote_messages';
+
+    // Session avatar colors
+    const AVATAR_COLORS = ['color-0', 'color-1', 'color-2', 'color-3', 'color-4'];
+
+    // ==================== State ====================
+    let ws = null;
+    let deviceId = null;
+    let deviceName = 'Phone Browser';
+    let pairId = null;
+    let paired = false;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 10;
+    let reconnectTimeout = null;
+    let isReconnecting = false;
+
+    let sessions = [];
+    let activeSessionId = null;
+    let sessionMessages = {};
+    let currentView = 'pairing'; // 'pairing' | 'list' | 'chat'
+    let baseDirectory = ''; // Base directory from server for path shortening
+
+    // ==================== DOM Elements ====================
+    const pairingScreen = document.getElementById('pairing-screen');
+    const sessionListScreen = document.getElementById('session-list-screen');
+    const chatScreen = document.getElementById('chat-screen');
+    const pair1 = document.getElementById('pair1');
+    const connectBtn = document.getElementById('connect-btn');
+    const pairingStatus = document.getElementById('pairing-status');
+    const messagesContainer = document.getElementById('messages');
+    const messageInput = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const typingIndicator = document.getElementById('typing');
+    const disconnectBtn = document.getElementById('disconnect-btn');
+    const sessionList = document.getElementById('session-list');
+    const newSessionBtn = document.getElementById('new-session-btn');
+    const backBtn = document.getElementById('back-btn');
+    const chatHeaderName = document.getElementById('chat-header-name');
+    const chatHeaderPath = document.getElementById('chat-header-path');
+    const chatHeaderStatus = document.getElementById('chat-header-status');
+    const chatStatusText = document.getElementById('chat-status-text');
+    const listConnectionBadge = document.getElementById('list-connection-badge');
+    const listConnectionText = document.getElementById('list-connection-text');
+
+    // ==================== Session Storage ====================
+    function loadSession() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const session = JSON.parse(saved);
+          if (Date.now() - session.timestamp < 24 * 60 * 60 * 1000) return session;
+        }
+      } catch (e) {}
+      return null;
+    }
+
+    function saveSession() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          deviceId, pairId, activeSessionId, timestamp: Date.now()
+        }));
+      } catch (e) {}
+    }
+
+    function clearSession() {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(MESSAGES_KEY);
+      } catch (e) {}
+    }
+
+    function loadMessages() {
+      try {
+        const saved = localStorage.getItem(MESSAGES_KEY);
+        if (saved) sessionMessages = JSON.parse(saved);
+      } catch (e) {}
+    }
+
+    function saveMessages() {
+      try {
+        localStorage.setItem(MESSAGES_KEY, JSON.stringify(sessionMessages));
+      } catch (e) {}
+    }
+
+    // ==================== Connection ====================
+    function generateDeviceId() {
+      return `web-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    function connectWebSocket(isReconnect = false) {
+      return new Promise((resolve, reject) => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          resolve();
+          return;
+        }
+
+        const timeout = setTimeout(() => reject(new Error('连接超时')), 10000);
+
+        try {
+          ws = new WebSocket(config.wsUrl);
+        } catch (e) {
+          clearTimeout(timeout);
+          reject(new Error('WebSocket 创建失败'));
+          return;
+        }
+
+        ws.onopen = () => {
+          const authData = { type: 'auth', token: `${deviceId}:${deviceName}:web` };
+          if (isReconnect && pairId) authData.pairId = pairId;
+          ws.send(JSON.stringify(authData));
+        };
+
+        ws.onmessage = (event) => {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'auth_success') {
+            clearTimeout(timeout);
+            reconnectAttempts = 0;
+            isReconnecting = false;
+          }
+          handleWSMessage(msg, resolve, reject);
+        };
+
+        ws.onclose = () => {
+          clearTimeout(timeout);
+          handleDisconnect();
+        };
+
+        ws.onerror = () => {
+          clearTimeout(timeout);
+          reject(new Error('连接失败'));
+        };
+      });
+    }
+
+    function handleDisconnect() {
+      updateConnectionStatus('offline');
+
+      if (pairId && reconnectAttempts < maxReconnectAttempts) {
+        isReconnecting = true;
+        reconnectAttempts++;
+        updateConnectionStatus('reconnecting');
+
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
+        reconnectTimeout = setTimeout(async () => {
+          try {
+            await connectWebSocket(true);
+            if (pairId) ws.send(JSON.stringify({ type: 'rejoin', pairId }));
+          } catch (e) {
+            handleDisconnect();
+          }
+        }, delay);
+      } else if (reconnectAttempts >= maxReconnectAttempts) {
+        addMessage('连接已断开，请刷新页面', 'system error');
+      }
+    }
+
+    function handleWSMessage(msg, resolve, reject) {
+      switch (msg.type) {
+        case 'auth_success':
+          resolve?.();
+          break;
+
+        case 'auth_error':
+          reject?.(new Error(msg.error));
+          break;
+
+        case 'paired':
+          paired = true;
+          pairId = msg.pairId;
+          reconnectAttempts = 0;
+          saveSession();
+          showSessionListScreen();
+          updateConnectionStatus('online');
+          if (!isReconnecting) addMessage('已连接到桌面端', 'system');
+          isReconnecting = false;
+          break;
+
+        case 'rejoin_success':
+          paired = true;
+          updateConnectionStatus('online');
+          addMessage('已重新连接', 'system');
+          break;
+
+        case 'rejoin_failed':
+          clearSession();
+          pairId = null;
+          paired = false;
+          addMessage('会话已失效', 'system error');
+          setTimeout(showPairingScreen, 2000);
+          break;
+
+        case 'unpaired':
+          paired = false;
+          addMessage('桌面端已断开', 'system error');
+          updateConnectionStatus('offline');
+          break;
+
+        case 'peer_offline':
+          addMessage('桌面端离线中...', 'system');
+          updateConnectionStatus('reconnecting');
+          break;
+
+        case 'message':
+          hideTyping();
+          const msgSessionId = msg.payload.sessionId || activeSessionId;
+          addMessage(msg.payload.content, 'claude', msgSessionId);
+          // Update session's last message preview
+          updateSessionPreview(msgSessionId, msg.payload.content);
+          break;
+
+        case 'session_list':
+          handleSessionList(msg);
+          break;
+
+        case 'session_created':
+          handleSessionCreated(msg.session);
+          break;
+
+        case 'session_switched':
+          handleSessionSwitched(msg.session);
+          break;
+
+        case 'session_deleted':
+          handleSessionDeleted(msg.sessionId);
+          break;
+
+        case 'session_error':
+          addMessage(`错误: ${msg.error}`, 'system error');
+          break;
+      }
+    }
+
+    // ==================== Session Management ====================
+    function handleSessionList(msg) {
+      sessions = (msg.sessions || []).map(s => ({
+        ...s,
+        lastMessage: getLastMessagePreview(s.id),
+        localMessageCount: (sessionMessages[s.id] || []).length
+      }));
+      activeSessionId = msg.activeSessionId;
+      if (msg.baseDirectory) {
+        baseDirectory = msg.baseDirectory;
+      }
+      saveSession();
+      renderSessionList();
+    }
+
+    function handleSessionCreated(session) {
+      session.lastMessage = '';
+      session.localMessageCount = 0;
+      sessions.unshift(session);
+      activeSessionId = session.id;
+      sessionMessages[session.id] = [];
+      saveSession();
+      saveMessages();
+      renderSessionList();
+      navigateToChat(session);
+      addMessage(`已创建: ${session.name}`, 'system', session.id);
+    }
+
+    function handleSessionSwitched(session) {
+      activeSessionId = session.id;
+      saveSession();
+      updateChatHeader(session);
+      renderMessages();
+    }
+
+    function handleSessionDeleted(sessionId) {
+      sessions = sessions.filter(s => s.id !== sessionId);
+      delete sessionMessages[sessionId];
+
+      if (activeSessionId === sessionId && sessions.length > 0) {
+        activeSessionId = sessions[0].id;
+      }
+
+      saveSession();
+      saveMessages();
+      renderSessionList();
+
+      if (currentView === 'chat' && (!sessions.length || activeSessionId === sessionId)) {
+        navigateToList();
+      }
+    }
+
+    function getLastMessagePreview(sessionId) {
+      const msgs = sessionMessages[sessionId] || [];
+      if (msgs.length === 0) return '';
+      const last = msgs[msgs.length - 1];
+      const text = last.content.replace(/\n/g, ' ').trim();
+      const prefix = last.type === 'user' ? '你: ' : '';
+      return prefix + (text.length > 40 ? text.substring(0, 40) + '...' : text);
+    }
+
+    function updateSessionPreview(sessionId, content) {
+      const session = sessions.find(s => s.id === sessionId);
+      if (session) {
+        session.lastMessage = content.replace(/\n/g, ' ').substring(0, 40);
+        session.lastActiveAt = Date.now();
+        session.localMessageCount = (sessionMessages[sessionId] || []).length;
+        // Re-sort sessions by lastActiveAt
+        sessions.sort((a, b) => b.lastActiveAt - a.lastActiveAt);
+        renderSessionList();
+      }
+    }
+
+    function getSessionColorClass(sessionId) {
+      // Generate consistent color based on session ID
+      let hash = 0;
+      for (let i = 0; i < sessionId.length; i++) {
+        hash = ((hash << 5) - hash) + sessionId.charCodeAt(i);
+        hash = hash & hash;
+      }
+      return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+    }
+
+    function formatRelativeTime(timestamp) {
+      const now = Date.now();
+      const diff = now - timestamp;
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+
+      if (minutes < 1) return '刚刚';
+      if (minutes < 60) return `${minutes}分钟前`;
+      if (hours < 24) return `${hours}小时前`;
+      if (days < 7) return `${days}天前`;
+
+      const date = new Date(timestamp);
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
+
+    function shortenPath(fullPath) {
+      // Convert full path to shorter display version relative to base directory
+      if (!fullPath) return '';
+
+      // If we have a base directory, show path relative to its parent
+      if (baseDirectory) {
+        const baseParent = baseDirectory.substring(0, baseDirectory.lastIndexOf('/'));
+        if (fullPath.startsWith(baseParent)) {
+          const relativePath = fullPath.substring(baseParent.length);
+          return relativePath.startsWith('/') ? relativePath.substring(1) : relativePath;
+        }
+      }
+
+      // Fallback: for /Users/xxx paths, show ~/...
+      const home = '/Users/' + (fullPath.split('/')[2] || '');
+      if (fullPath.startsWith(home)) {
+        return '~' + fullPath.substring(home.length);
+      }
+
+      // For /Volumes/xxx/yyy paths, show from volume name
+      if (fullPath.startsWith('/Volumes/')) {
+        const parts = fullPath.split('/');
+        if (parts.length > 3) {
+          return parts.slice(3).join('/');
+        }
+      }
+
+      return fullPath;
+    }
+
+    function renderSessionList() {
+      if (sessions.length === 0) {
+        sessionList.innerHTML = `
+          <div class="list-empty">
+            <div class="list-empty-icon">📂</div>
+            <div class="list-empty-text">暂无会话<br>点击右下角 + 创建新会话</div>
+          </div>
+        `;
+        return;
+      }
+
+      // Sort by lastActiveAt descending (most recent first)
+      const sortedSessions = [...sessions].sort((a, b) => b.lastActiveAt - a.lastActiveAt);
+
+      sessionList.innerHTML = sortedSessions.map((session, index) => {
+        const isCurrent = session.id === activeSessionId;
+        const colorClass = getSessionColorClass(session.id);
+        const shortPath = shortenPath(session.workingDirectory);
+        const msgCount = (sessionMessages[session.id] || []).length;
+        const preview = getLastMessagePreview(session.id);
+        const timeStr = formatRelativeTime(session.lastActiveAt);
+
+        return `
+          <div class="session-item ${isCurrent ? 'current' : ''}" data-session-id="${session.id}">
+            <div class="session-avatar ${colorClass}">
+              📁
+              ${msgCount > 0 ? `<span class="session-avatar-badge">${msgCount > 99 ? '99+' : msgCount}</span>` : ''}
+            </div>
+            <div class="session-content">
+              <div class="session-top-row">
+                <span class="session-name">${escapeHtml(session.name)}</span>
+                <span class="session-time">${timeStr}</span>
+              </div>
+              <div class="session-path">${escapeHtml(shortPath)}</div>
+              <div class="session-preview">${preview ? escapeHtml(preview) : '暂无消息'}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      sessionList.querySelectorAll('.session-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const sessionId = item.dataset.sessionId;
+          const session = sessions.find(s => s.id === sessionId);
+          if (session) navigateToChat(session);
+        });
+
+        // Long press to delete
+        let pressTimer;
+        item.addEventListener('touchstart', (e) => {
+          pressTimer = setTimeout(() => {
+            const sessionId = item.dataset.sessionId;
+            if (confirm('删除此会话？')) {
+              deleteSession(sessionId);
+            }
+          }, 600);
+        });
+        item.addEventListener('touchend', () => clearTimeout(pressTimer));
+        item.addEventListener('touchmove', () => clearTimeout(pressTimer));
+      });
+    }
+
+    function deleteSession(sessionId) {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'session_delete', sessionId }));
+      }
+    }
+
+    function createNewSession() {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'session_create' }));
+      }
+    }
+
+    // ==================== Navigation ====================
+    function showPairingScreen() {
+      currentView = 'pairing';
+      pairingScreen.classList.remove('hidden');
+      sessionListScreen.classList.add('hidden');
+      chatScreen.classList.add('hidden');
+      pair1.value = '';
+      pairingStatus.textContent = '在桌面端获取 4 位配对码';
+      pairingStatus.className = 'status-text';
+      connectBtn.disabled = true;
+      setTimeout(() => pair1.focus(), 100);
+    }
+
+    function showSessionListScreen() {
+      currentView = 'list';
+      pairingScreen.classList.add('hidden');
+      sessionListScreen.classList.remove('hidden', 'slide-left', 'slide-right');
+      chatScreen.classList.add('hidden', 'slide-right');
+      chatScreen.classList.remove('slide-left');
+      renderSessionList();
+    }
+
+    function navigateToChat(session) {
+      currentView = 'chat';
+      activeSessionId = session.id;
+
+      // Switch session on server
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'session_switch', sessionId: session.id }));
+      }
+
+      // Update header
+      updateChatHeader(session);
+
+      // Animate transition
+      sessionListScreen.classList.add('slide-left');
+      chatScreen.classList.remove('hidden', 'slide-right');
+
+      setTimeout(() => {
+        sessionListScreen.classList.add('hidden');
+        renderMessages();
+        messageInput.focus();
+      }, 350);
+    }
+
+    function navigateToList() {
+      currentView = 'list';
+
+      // Animate transition
+      sessionListScreen.classList.remove('hidden', 'slide-left');
+      chatScreen.classList.add('slide-right');
+
+      setTimeout(() => {
+        chatScreen.classList.add('hidden');
+        renderSessionList();
+      }, 350);
+    }
+
+    function updateChatHeader(session) {
+      chatHeaderName.textContent = session.name;
+      chatHeaderPath.textContent = shortenPath(session.workingDirectory);
+    }
+
+    // ==================== UI Helpers ====================
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function updateConnectionStatus(status) {
+      // Update list screen badge
+      listConnectionBadge.classList.remove('offline', 'reconnecting');
+      // Update chat screen status
+      chatHeaderStatus.classList.remove('online', 'offline', 'reconnecting');
+
+      switch (status) {
+        case 'online':
+          listConnectionText.textContent = '在线';
+          chatStatusText.textContent = '在线';
+          chatHeaderStatus.classList.add('online');
+          break;
+        case 'offline':
+          listConnectionBadge.classList.add('offline');
+          chatHeaderStatus.classList.add('offline');
+          listConnectionText.textContent = '离线';
+          chatStatusText.textContent = '离线';
+          break;
+        case 'reconnecting':
+          listConnectionBadge.classList.add('reconnecting');
+          chatHeaderStatus.classList.add('reconnecting');
+          listConnectionText.textContent = `重连 ${reconnectAttempts}/${maxReconnectAttempts}`;
+          chatStatusText.textContent = `重连中`;
+          break;
+      }
+    }
+
+    function addMessage(content, type, sessionId = null) {
+      const targetSessionId = sessionId || activeSessionId || 'default';
+
+      if (!sessionMessages[targetSessionId]) {
+        sessionMessages[targetSessionId] = [];
+      }
+
+      sessionMessages[targetSessionId].push({
+        content,
+        type,
+        timestamp: Date.now()
+      });
+
+      if (sessionMessages[targetSessionId].length > 100) {
+        sessionMessages[targetSessionId] = sessionMessages[targetSessionId].slice(-100);
+      }
+
+      saveMessages();
+
+      // Update session in list
+      const session = sessions.find(s => s.id === targetSessionId);
+      if (session) {
+        session.localMessageCount = sessionMessages[targetSessionId].length;
+        session.lastActiveAt = Date.now();
+      }
+
+      if (currentView === 'chat' && targetSessionId === activeSessionId) {
+        renderMessageElement(content, type);
+      } else {
+        // Update list to show new message preview
+        renderSessionList();
+      }
+    }
+
+    function renderMessageElement(content, type) {
+      // Remove empty state if exists
+      const emptyState = messagesContainer.querySelector('.chat-empty');
+      if (emptyState) emptyState.remove();
+
+      const div = document.createElement('div');
+      div.className = `message ${type}`;
+
+      let html = content
+        .replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      div.innerHTML = html;
+      messagesContainer.appendChild(div);
+
+      requestAnimationFrame(() => {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      });
+    }
+
+    function renderMessages() {
+      messagesContainer.innerHTML = '';
+      const messages = sessionMessages[activeSessionId] || [];
+
+      if (messages.length === 0) {
+        messagesContainer.innerHTML = `
+          <div class="chat-empty">
+            <div class="chat-empty-icon">💬</div>
+            <div class="chat-empty-text">发送消息开始与 Claude 对话</div>
+          </div>
+        `;
+        return;
+      }
+
+      messages.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = `message ${msg.type}`;
+        let html = msg.content
+          .replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+          .replace(/`([^`]+)`/g, '<code>$1</code>');
+        div.innerHTML = html;
+        messagesContainer.appendChild(div);
+      });
+
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function showTyping() {
+      typingIndicator.classList.add('visible');
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function hideTyping() {
+      typingIndicator.classList.remove('visible');
+    }
+
+    // ==================== Event Handlers ====================
+    pair1.addEventListener('input', (e) => {
+      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      connectBtn.disabled = pair1.value.length !== 4;
+    });
+
+    connectBtn.addEventListener('click', async () => {
+      const pairCode = pair1.value;
+      connectBtn.disabled = true;
+      pairingStatus.textContent = '正在连接...';
+      pairingStatus.className = 'status-text';
+
+      try {
+        await connectWebSocket(false);
+        pairingStatus.textContent = '验证中...';
+
+        const response = await fetch(`${config.httpUrl}/api/pair/confirm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pairCode, deviceId, deviceName, platform: 'web' })
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.data.success) {
+          pairingStatus.textContent = '配对成功';
+          pairingStatus.className = 'status-text success';
+        } else {
+          throw new Error(data.data?.error || data.error || '配对失败');
+        }
+      } catch (error) {
+        pairingStatus.textContent = error.message;
+        pairingStatus.className = 'status-text error';
+        connectBtn.disabled = false;
+        ws?.close();
+      }
+    });
+
+    disconnectBtn.addEventListener('click', () => {
+      if (confirm('断开连接？')) {
+        clearSession();
+        clearTimeout(reconnectTimeout);
+        reconnectAttempts = maxReconnectAttempts;
+        ws?.close();
+        pairId = null;
+        paired = false;
+        sessions = [];
+        activeSessionId = null;
+        sessionMessages = {};
+        showPairingScreen();
+      }
+    });
+
+    backBtn.addEventListener('click', navigateToList);
+    newSessionBtn.addEventListener('click', createNewSession);
+
+    function sendMessage() {
+      const content = messageInput.value.trim();
+      if (!content || !paired || ws?.readyState !== WebSocket.OPEN) return;
+
+      addMessage(content, 'user', activeSessionId);
+      ws.send(JSON.stringify({
+        type: 'message',
+        payload: {
+          id: Date.now().toString(),
+          content,
+          timestamp: Date.now(),
+          sessionId: activeSessionId || 'default'
+        }
+      }));
+
+      messageInput.value = '';
+      messageInput.style.height = 'auto';
+      showTyping();
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+
+    messageInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    messageInput.addEventListener('input', () => {
+      messageInput.style.height = 'auto';
+      messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+    });
+
+    messageInput.addEventListener('focus', () => {
+      setTimeout(() => messagesContainer.scrollTop = messagesContainer.scrollHeight, 300);
+    });
+
+    // Heartbeat
+    setInterval(() => {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 25000);
+
+    // Visibility change
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && pairId) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          reconnectAttempts = 0;
+          handleDisconnect();
+        }
+      }
+    });
+
+    // ==================== Initialization ====================
+    async function init() {
+      loadMessages();
+      const savedSession = loadSession();
+
+      if (savedSession) {
+        deviceId = savedSession.deviceId;
+        pairId = savedSession.pairId;
+        activeSessionId = savedSession.activeSessionId;
+
+        pairingStatus.textContent = '恢复会话中...';
+
+        try {
+          await connectWebSocket(true);
+          ws.send(JSON.stringify({ type: 'rejoin', pairId }));
+          showSessionListScreen();
+          updateConnectionStatus('reconnecting');
+        } catch (e) {
+          clearSession();
+          deviceId = generateDeviceId();
+          pairId = null;
+          showPairingScreen();
+        }
+      } else {
+        deviceId = generateDeviceId();
+        showPairingScreen();
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

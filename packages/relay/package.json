@@ -1,0 +1,32 @@
+{
+  "name": "@claude-remote/relay",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --forceExit",
+    "demo:desktop": "tsx src/test-desktop.ts",
+    "demo:phone": "tsx src/test-phone.ts",
+    "desktop": "tsx src/desktop-claude.ts"
+  },
+  "dependencies": {
+    "@claude-remote/shared": "*",
+    "express": "^4.18.2",
+    "ws": "^8.16.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.11.0",
+    "@types/uuid": "^9.0.7",
+    "@types/ws": "^8.5.10",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}

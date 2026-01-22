@@ -1,26 +1,37 @@
 {
-  "name": "claude-tg-bridge",
+  "name": "claude-remote",
   "version": "1.0.0",
+  "private": true,
   "type": "module",
-  "description": "Telegram remote control bridge for Claude Code CLI",
-  "main": "dist/index.js",
-  "bin": {
-    "claude-tg-bridge": "./bin/claude-tg-bridge.js"
-  },
+  "description": "Remote control for Claude Code CLI",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "tsx src/index.ts"
+    "build": "npm run build --workspaces",
+    "build:shared": "npm run build -w @claude-remote/shared",
+    "build:relay": "npm run build -w @claude-remote/relay",
+    "dev:relay": "npm run dev -w @claude-remote/relay",
+    "test": "npm run test --workspaces --if-present",
+    "test:relay": "npm run test -w @claude-remote/relay",
+    "demo:server": "npm run dev -w @claude-remote/relay",
+    "demo:desktop": "npm run demo:desktop -w @claude-remote/relay",
+    "demo:phone": "npm run demo:phone -w @claude-remote/relay",
+    "server": "npm run dev -w @claude-remote/relay",
+    "desktop": "tsx packages/relay/src/desktop-claude.ts",
+    "desktop:app": "npm run start -w @claude-remote/desktop-app",
+    "desktop:build": "npm run build -w @claude-remote/desktop-app",
+    "desktop:package": "npm run package -w @claude-remote/desktop-app",
+    "clean": "rm -rf packages/*/dist packages/*/node_modules node_modules"
   },
-  "keywords": ["claude", "telegram", "cli", "remote"],
+  "keywords": ["claude", "remote", "cli"],
   "license": "MIT",
-  "dependencies": {
-    "node-telegram-bot-api": "^0.66.0"
-  },
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "@types/node-telegram-bot-api": "^0.64.0",
     "tsx": "^4.7.0",
     "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

@@ -1,0 +1,1807 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0a0a0b">
+  <title>Claude Remote</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep: #0a0a0b;
+      --bg-primary: #121214;
+      --bg-elevated: #1a1a1e;
+      --bg-glass: rgba(26, 26, 30, 0.85);
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border-default: rgba(255, 255, 255, 0.1);
+      --border-focus: rgba(255, 138, 101, 0.4);
+
+      --text-primary: #fafafa;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+
+      --accent: #ff8a65;
+      --accent-soft: rgba(255, 138, 101, 0.15);
+      --accent-glow: rgba(255, 138, 101, 0.3);
+
+      --success: #4ade80;
+      --success-soft: rgba(74, 222, 128, 0.15);
+      --warning: #fbbf24;
+      --warning-soft: rgba(251, 191, 36, 0.15);
+      --error: #f87171;
+      --error-soft: rgba(248, 113, 113, 0.15);
+
+      --user-bubble: linear-gradient(135deg, #2d2d32 0%, #1f1f23 100%);
+      --claude-bubble: linear-gradient(135deg, rgba(255, 138, 101, 0.08) 0%, rgba(255, 138, 101, 0.03) 100%);
+
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+
+      --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+      --font-sans: 'DM Sans', -apple-system, sans-serif;
+
+      --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --keyboard-height: 0px;
+    }
+
+    html {
+      height: 100%;
+      height: -webkit-fill-available;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      height: 100vh;
+      height: 100dvh;
+      height: calc(var(--vh, 1vh) * 100);
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      position: fixed;
+      width: 100%;
+      top: 0;
+      left: 0;
+    }
+
+    /* Noise texture overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      opacity: 0.03;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ==================== Pairing Screen ==================== */
+    #pairing-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 24px;
+      position: relative;
+      z-index: 1;
+      animation: fadeIn 0.6s var(--ease-out-expo);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .logo-container {
+      position: relative;
+      margin-bottom: 24px;
+    }
+
+    .logo {
+      width: 72px;
+      height: 72px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      position: relative;
+      box-shadow:
+        0 0 0 1px var(--border-subtle),
+        0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .logo::after {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--accent-glow) 0%, transparent 50%);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .logo-container:hover .logo::after {
+      opacity: 1;
+    }
+
+    .logo-pulse {
+      position: absolute;
+      inset: -8px;
+      border: 2px solid var(--accent);
+      border-radius: 24px;
+      animation: logoPulse 2s ease-out infinite;
+      opacity: 0;
+    }
+
+    @keyframes logoPulse {
+      0% { transform: scale(0.95); opacity: 0.5; }
+      100% { transform: scale(1.1); opacity: 0; }
+    }
+
+    .brand {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .brand h1 {
+      font-family: var(--font-mono);
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .brand p {
+      font-size: 14px;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .pair-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 320px;
+      box-shadow:
+        0 0 0 1px var(--border-subtle),
+        0 16px 48px rgba(0, 0, 0, 0.3);
+    }
+
+    .pair-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .pair-input-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    .pair-input {
+      width: 88px;
+      height: 56px;
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 500;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      background: var(--bg-primary);
+      border: 2px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      transition: all 0.2s var(--ease-out-expo);
+      caret-color: var(--accent);
+    }
+
+    .pair-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-soft);
+    }
+
+    .pair-input::placeholder {
+      color: var(--text-muted);
+      opacity: 0.5;
+    }
+
+    .pair-separator {
+      font-family: var(--font-mono);
+      font-size: 20px;
+      line-height: 56px;
+      color: var(--text-muted);
+      user-select: none;
+    }
+
+    .connect-btn {
+      width: 100%;
+      padding: 16px 24px;
+      font-family: var(--font-sans);
+      font-size: 15px;
+      font-weight: 600;
+      background: var(--accent);
+      color: var(--bg-deep);
+      border: none;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.2s var(--ease-out-expo);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .connect-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .connect-btn:hover:not(:disabled)::before {
+      opacity: 1;
+    }
+
+    .connect-btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .connect-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .status-text {
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: center;
+      min-height: 20px;
+      transition: color 0.2s;
+    }
+
+    .status-text.error {
+      color: var(--error);
+    }
+
+    .status-text.success {
+      color: var(--success);
+    }
+
+    /* ==================== Chat Screen ==================== */
+    #chat-screen {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+      position: relative;
+      z-index: 1;
+    }
+
+    #chat-screen.visible {
+      display: flex;
+      animation: slideIn 0.4s var(--ease-out-expo);
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+      position: relative;
+      z-index: 10;
+      min-height: 56px;
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .session-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      max-width: 180px;
+      transition: all 0.2s var(--ease-out-expo);
+    }
+
+    .session-selector:hover {
+      border-color: var(--border-focus);
+      background: var(--bg-primary);
+    }
+
+    .session-selector:active {
+      transform: scale(0.98);
+    }
+
+    .session-icon-mini {
+      width: 20px;
+      height: 20px;
+      background: var(--accent-soft);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      flex-shrink: 0;
+    }
+
+    .session-name {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-primary);
+    }
+
+    .session-arrow {
+      font-size: 8px;
+      color: var(--text-muted);
+      margin-left: auto;
+      transition: transform 0.2s;
+    }
+
+    .session-selector:hover .session-arrow {
+      transform: translateY(2px);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .connection-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: var(--success-soft);
+      border-radius: 20px;
+      transition: background 0.2s;
+    }
+
+    .connection-indicator.offline {
+      background: var(--error-soft);
+    }
+
+    .connection-indicator.reconnecting {
+      background: var(--warning-soft);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      flex-shrink: 0;
+    }
+
+    .connection-indicator.offline .status-dot {
+      background: var(--error);
+    }
+
+    .connection-indicator.reconnecting .status-dot {
+      background: var(--warning);
+      animation: blink 1s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .connection-text {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--success);
+    }
+
+    .connection-indicator.offline .connection-text {
+      color: var(--error);
+    }
+
+    .connection-indicator.reconnecting .connection-text {
+      color: var(--warning);
+    }
+
+    .disconnect-btn {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+    }
+
+    .disconnect-btn:hover {
+      border-color: var(--error);
+      color: var(--error);
+      background: var(--error-soft);
+    }
+
+    /* ==================== Messages ==================== */
+    .messages-container {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .messages {
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      scroll-behavior: smooth;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .messages::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .messages::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .messages::-webkit-scrollbar-thumb {
+      background: var(--border-default);
+      border-radius: 2px;
+    }
+
+    .message {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: var(--radius-lg);
+      line-height: 1.6;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+      font-size: 14px;
+      animation: messageIn 0.3s var(--ease-spring);
+      transform-origin: bottom;
+    }
+
+    @keyframes messageIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: var(--user-bubble);
+      border: 1px solid var(--border-subtle);
+      border-bottom-right-radius: 4px;
+      color: var(--text-primary);
+    }
+
+    .message.claude {
+      align-self: flex-start;
+      background: var(--claude-bubble);
+      border: 1px solid rgba(255, 138, 101, 0.1);
+      border-bottom-left-radius: 4px;
+      position: relative;
+    }
+
+    .message.claude::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 12px;
+      bottom: 12px;
+      width: 2px;
+      background: var(--accent);
+      border-radius: 1px;
+      opacity: 0.5;
+    }
+
+    .message.system {
+      align-self: center;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 8px 16px;
+      font-family: var(--font-mono);
+    }
+
+    .message.system.error {
+      color: var(--error);
+    }
+
+    .message pre {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+      margin: 8px 0;
+      font-size: 12px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .message code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .message:not(pre) code {
+      background: rgba(255, 138, 101, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+
+    .typing-indicator {
+      display: none;
+      align-self: flex-start;
+      padding: 16px 20px;
+      background: var(--claude-bubble);
+      border: 1px solid rgba(255, 138, 101, 0.1);
+      border-radius: var(--radius-lg);
+      border-bottom-left-radius: 4px;
+      gap: 6px;
+    }
+
+    .typing-indicator.visible {
+      display: flex;
+      animation: messageIn 0.3s var(--ease-spring);
+    }
+
+    .typing-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: typingBounce 1.4s ease-in-out infinite;
+    }
+
+    .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes typingBounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-6px); opacity: 1; }
+    }
+
+    /* ==================== Input Area ==================== */
+    .input-wrapper {
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+      position: relative;
+      z-index: 10;
+      transition: padding-bottom 0.3s var(--ease-out-expo);
+      padding-bottom: var(--safe-bottom);
+    }
+
+    .input-area {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      padding: 12px 16px;
+    }
+
+    .input-container {
+      flex: 1;
+      position: relative;
+    }
+
+    .message-input {
+      width: 100%;
+      padding: 14px 18px;
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.4;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      color: var(--text-primary);
+      resize: none;
+      min-height: 48px;
+      max-height: 120px;
+      transition: all 0.2s var(--ease-out-expo);
+      caret-color: var(--accent);
+    }
+
+    .message-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-soft);
+    }
+
+    .message-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .send-btn {
+      width: 48px;
+      height: 48px;
+      background: var(--accent);
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s var(--ease-spring);
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(255, 138, 101, 0.3);
+    }
+
+    .send-btn:hover:not(:disabled) {
+      transform: scale(1.05);
+      box-shadow: 0 6px 20px rgba(255, 138, 101, 0.4);
+    }
+
+    .send-btn:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+
+    .send-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .send-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: var(--bg-deep);
+      transform: translateX(1px);
+    }
+
+    /* ==================== Session Panel ==================== */
+    .session-panel {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s var(--ease-out-expo);
+    }
+
+    .session-panel.visible {
+      pointer-events: auto;
+      opacity: 1;
+    }
+
+    .session-panel-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+
+    .session-panel-content {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg-elevated);
+      border-top-left-radius: var(--radius-xl);
+      border-top-right-radius: var(--radius-xl);
+      max-height: 70vh;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(100%);
+      transition: transform 0.4s var(--ease-out-expo);
+      box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.3);
+      padding-bottom: var(--safe-bottom);
+    }
+
+    .session-panel.visible .session-panel-content {
+      transform: translateY(0);
+    }
+
+    .session-panel-handle {
+      width: 36px;
+      height: 4px;
+      background: var(--border-default);
+      border-radius: 2px;
+      margin: 12px auto;
+      flex-shrink: 0;
+    }
+
+    .session-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 20px 16px;
+      flex-shrink: 0;
+    }
+
+    .session-panel-title {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+    }
+
+    .session-panel-close {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .session-panel-close:hover {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+
+    .session-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 12px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .session-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px;
+      margin-bottom: 8px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.2s var(--ease-out-expo);
+      border: 1px solid transparent;
+      background: var(--bg-primary);
+    }
+
+    .session-item:hover {
+      background: var(--bg-deep);
+    }
+
+    .session-item:active {
+      transform: scale(0.98);
+    }
+
+    .session-item.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .session-icon {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-md);
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .session-item.active .session-icon {
+      background: var(--accent);
+    }
+
+    .session-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .session-item-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+
+    .session-item-dir {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+
+    .session-item-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .session-delete {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      opacity: 0;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .session-item:hover .session-delete {
+      opacity: 1;
+    }
+
+    .session-delete:hover {
+      color: var(--error);
+      background: var(--error-soft);
+    }
+
+    .new-session-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin: 12px;
+      padding: 14px;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius-md);
+      color: var(--bg-deep);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s var(--ease-spring);
+      flex-shrink: 0;
+    }
+
+    .new-session-btn:hover {
+      transform: scale(1.02);
+      box-shadow: 0 4px 16px rgba(255, 138, 101, 0.3);
+    }
+
+    .new-session-btn:active {
+      transform: scale(0.98);
+    }
+
+    /* ==================== Empty State ==================== */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 40px;
+      text-align: center;
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .empty-text {
+      font-size: 14px;
+      color: var(--text-muted);
+      max-width: 240px;
+      line-height: 1.6;
+    }
+
+    /* Keyboard handling class */
+    body.keyboard-open .input-wrapper {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Pairing Screen -->
+  <div id="pairing-screen">
+    <div class="logo-container">
+      <div class="logo">⌘</div>
+      <div class="logo-pulse"></div>
+    </div>
+
+    <div class="brand">
+      <h1>Claude Remote</h1>
+      <p>连接你的桌面 Claude CLI</p>
+    </div>
+
+    <div class="pair-card">
+      <div class="pair-label">输入配对码</div>
+      <div class="pair-input-group">
+        <input type="text" class="pair-input" id="pair1" maxlength="4" autocomplete="off" autocapitalize="characters" inputmode="text" placeholder="····">
+        <span class="pair-separator">—</span>
+        <input type="text" class="pair-input" id="pair2" maxlength="4" autocomplete="off" autocapitalize="characters" inputmode="text" placeholder="····">
+      </div>
+      <button class="connect-btn" id="connect-btn" disabled>建立连接</button>
+    </div>
+
+    <p class="status-text" id="pairing-status">在桌面端获取 8 位配对码</p>
+  </div>
+
+  <!-- Chat Screen -->
+  <div id="chat-screen">
+    <div class="chat-header">
+      <div class="header-left">
+        <div class="session-selector" id="session-selector">
+          <div class="session-icon-mini">📁</div>
+          <span class="session-name" id="current-session-name">默认会话</span>
+          <span class="session-arrow">▼</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="connection-indicator" id="connection-indicator">
+          <span class="status-dot"></span>
+          <span class="connection-text" id="connection-text">在线</span>
+        </div>
+        <button class="disconnect-btn" id="disconnect-btn" title="断开连接">✕</button>
+      </div>
+    </div>
+
+    <div class="messages-container">
+      <div class="messages" id="messages"></div>
+      <div class="typing-indicator" id="typing">
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+      </div>
+    </div>
+
+    <div class="input-wrapper" id="input-wrapper">
+      <div class="input-area">
+        <div class="input-container">
+          <textarea class="message-input" id="message-input" placeholder="输入消息..." rows="1"></textarea>
+        </div>
+        <button class="send-btn" id="send-btn">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session Panel -->
+  <div class="session-panel" id="session-panel">
+    <div class="session-panel-backdrop" id="session-panel-backdrop"></div>
+    <div class="session-panel-content">
+      <div class="session-panel-handle"></div>
+      <div class="session-panel-header">
+        <span class="session-panel-title">会话列表</span>
+        <button class="session-panel-close" id="session-panel-close">×</button>
+      </div>
+      <div class="session-list" id="session-list"></div>
+      <button class="new-session-btn" id="new-session-btn">
+        <span>+</span> 新建会话
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // ==================== Viewport & Keyboard Handling ====================
+    function setViewportHeight() {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    }
+
+    setViewportHeight();
+    window.addEventListener('resize', setViewportHeight);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(setViewportHeight, 100);
+    });
+
+    // Visual Viewport API for keyboard handling
+    if (window.visualViewport) {
+      let pendingUpdate = false;
+
+      function updateViewport() {
+        pendingUpdate = false;
+        const viewport = window.visualViewport;
+        const keyboardHeight = window.innerHeight - viewport.height;
+
+        if (keyboardHeight > 100) {
+          document.body.classList.add('keyboard-open');
+          document.documentElement.style.setProperty('--keyboard-height', `${keyboardHeight}px`);
+
+          // Scroll messages to bottom when keyboard opens
+          setTimeout(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          }, 100);
+        } else {
+          document.body.classList.remove('keyboard-open');
+          document.documentElement.style.setProperty('--keyboard-height', '0px');
+        }
+      }
+
+      window.visualViewport.addEventListener('resize', () => {
+        if (!pendingUpdate) {
+          pendingUpdate = true;
+          requestAnimationFrame(updateViewport);
+        }
+      });
+    }
+
+    // ==================== Configuration ====================
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const config = {
+      httpUrl: window.location.origin,
+      wsUrl: `${wsProtocol}//${window.location.host}`
+    };
+
+    const STORAGE_KEY = 'claude_remote_session';
+    const MESSAGES_KEY = 'claude_remote_messages';
+
+    // ==================== State ====================
+    let ws = null;
+    let deviceId = null;
+    let deviceName = 'Phone Browser';
+    let pairId = null;
+    let paired = false;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 10;
+    let reconnectTimeout = null;
+    let isReconnecting = false;
+
+    let sessions = [];
+    let activeSessionId = null;
+    let sessionMessages = {};
+
+    // ==================== DOM Elements ====================
+    const pairingScreen = document.getElementById('pairing-screen');
+    const chatScreen = document.getElementById('chat-screen');
+    const pair1 = document.getElementById('pair1');
+    const pair2 = document.getElementById('pair2');
+    const connectBtn = document.getElementById('connect-btn');
+    const pairingStatus = document.getElementById('pairing-status');
+    const messagesContainer = document.getElementById('messages');
+    const messageInput = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const connectionIndicator = document.getElementById('connection-indicator');
+    const connectionText = document.getElementById('connection-text');
+    const typingIndicator = document.getElementById('typing');
+    const disconnectBtn = document.getElementById('disconnect-btn');
+    const sessionSelector = document.getElementById('session-selector');
+    const currentSessionName = document.getElementById('current-session-name');
+    const sessionPanel = document.getElementById('session-panel');
+    const sessionPanelBackdrop = document.getElementById('session-panel-backdrop');
+    const sessionList = document.getElementById('session-list');
+    const sessionPanelClose = document.getElementById('session-panel-close');
+    const newSessionBtn = document.getElementById('new-session-btn');
+    const inputWrapper = document.getElementById('input-wrapper');
+
+    // ==================== Session Storage ====================
+    function loadSession() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const session = JSON.parse(saved);
+          if (Date.now() - session.timestamp < 24 * 60 * 60 * 1000) {
+            return session;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load session:', e);
+      }
+      return null;
+    }
+
+    function saveSession() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          deviceId,
+          pairId,
+          activeSessionId,
+          timestamp: Date.now()
+        }));
+      } catch (e) {
+        console.error('Failed to save session:', e);
+      }
+    }
+
+    function clearSession() {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(MESSAGES_KEY);
+      } catch (e) {
+        console.error('Failed to clear session:', e);
+      }
+    }
+
+    function loadMessages() {
+      try {
+        const saved = localStorage.getItem(MESSAGES_KEY);
+        if (saved) {
+          sessionMessages = JSON.parse(saved);
+        }
+      } catch (e) {
+        console.error('Failed to load messages:', e);
+      }
+    }
+
+    function saveMessages() {
+      try {
+        localStorage.setItem(MESSAGES_KEY, JSON.stringify(sessionMessages));
+      } catch (e) {
+        console.error('Failed to save messages:', e);
+      }
+    }
+
+    // ==================== Connection ====================
+    function generateDeviceId() {
+      return `web-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    function connectWebSocket(isReconnect = false) {
+      return new Promise((resolve, reject) => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          resolve();
+          return;
+        }
+
+        const timeout = setTimeout(() => {
+          reject(new Error('连接超时'));
+        }, 10000);
+
+        try {
+          ws = new WebSocket(config.wsUrl);
+        } catch (e) {
+          clearTimeout(timeout);
+          reject(new Error('WebSocket 创建失败'));
+          return;
+        }
+
+        ws.onopen = () => {
+          const authData = {
+            type: 'auth',
+            token: `${deviceId}:${deviceName}:web`
+          };
+          if (isReconnect && pairId) {
+            authData.pairId = pairId;
+          }
+          ws.send(JSON.stringify(authData));
+        };
+
+        ws.onmessage = (event) => {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'auth_success') {
+            clearTimeout(timeout);
+            reconnectAttempts = 0;
+            isReconnecting = false;
+          }
+          handleWSMessage(msg, resolve, reject);
+        };
+
+        ws.onclose = () => {
+          clearTimeout(timeout);
+          handleDisconnect();
+        };
+
+        ws.onerror = (error) => {
+          clearTimeout(timeout);
+          reject(new Error('连接失败'));
+        };
+      });
+    }
+
+    function handleDisconnect() {
+      updateConnectionStatus('offline');
+
+      if (pairId && reconnectAttempts < maxReconnectAttempts) {
+        isReconnecting = true;
+        reconnectAttempts++;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
+
+        updateConnectionStatus('reconnecting');
+
+        reconnectTimeout = setTimeout(async () => {
+          try {
+            await connectWebSocket(true);
+            if (pairId) {
+              ws.send(JSON.stringify({ type: 'rejoin', pairId }));
+            }
+          } catch (e) {
+            handleDisconnect();
+          }
+        }, delay);
+      } else if (reconnectAttempts >= maxReconnectAttempts) {
+        addMessage('连接已断开，请刷新页面', 'system error');
+      }
+    }
+
+    function handleWSMessage(msg, resolve, reject) {
+      switch (msg.type) {
+        case 'auth_success':
+          resolve?.();
+          break;
+
+        case 'auth_error':
+          reject?.(new Error(msg.error));
+          break;
+
+        case 'paired':
+          paired = true;
+          pairId = msg.pairId;
+          reconnectAttempts = 0;
+          saveSession();
+          showChatScreen();
+          updateConnectionStatus('online');
+          if (isReconnecting) {
+            addMessage('已重新连接', 'system');
+            isReconnecting = false;
+          } else {
+            addMessage('已连接到桌面端', 'system');
+          }
+          break;
+
+        case 'rejoin_success':
+          paired = true;
+          updateConnectionStatus('online');
+          addMessage('已重新连接', 'system');
+          break;
+
+        case 'rejoin_failed':
+          clearSession();
+          pairId = null;
+          paired = false;
+          addMessage('会话已失效', 'system error');
+          setTimeout(showPairingScreen, 2000);
+          break;
+
+        case 'unpaired':
+          paired = false;
+          addMessage('桌面端已断开', 'system error');
+          updateConnectionStatus('offline');
+          break;
+
+        case 'peer_offline':
+          addMessage('桌面端离线中...', 'system');
+          updateConnectionStatus('reconnecting');
+          break;
+
+        case 'message':
+          hideTyping();
+          const msgSessionId = msg.payload.sessionId || activeSessionId;
+          addMessage(msg.payload.content, 'claude', msgSessionId);
+          break;
+
+        case 'session_list':
+          handleSessionList(msg);
+          break;
+
+        case 'session_created':
+          handleSessionCreated(msg.session);
+          break;
+
+        case 'session_switched':
+          handleSessionSwitched(msg.session);
+          break;
+
+        case 'session_deleted':
+          handleSessionDeleted(msg.sessionId);
+          break;
+
+        case 'session_error':
+          addMessage(`错误: ${msg.error}`, 'system error');
+          break;
+
+        case 'pong':
+          break;
+      }
+    }
+
+    // ==================== Session Management ====================
+    function handleSessionList(msg) {
+      sessions = msg.sessions || [];
+      activeSessionId = msg.activeSessionId;
+
+      if (activeSessionId) {
+        const activeSession = sessions.find(s => s.id === activeSessionId);
+        if (activeSession) {
+          currentSessionName.textContent = activeSession.name;
+        }
+      }
+
+      saveSession();
+      renderSessionList();
+    }
+
+    function handleSessionCreated(session) {
+      sessions.push(session);
+      activeSessionId = session.id;
+      currentSessionName.textContent = session.name;
+      sessionMessages[session.id] = [];
+      saveSession();
+      saveMessages();
+      renderSessionList();
+      renderMessages();
+      hideSessionPanel();
+      addMessage(`已创建: ${session.name}`, 'system', session.id);
+    }
+
+    function handleSessionSwitched(session) {
+      activeSessionId = session.id;
+      currentSessionName.textContent = session.name;
+      saveSession();
+      renderMessages();
+      hideSessionPanel();
+    }
+
+    function handleSessionDeleted(sessionId) {
+      sessions = sessions.filter(s => s.id !== sessionId);
+      delete sessionMessages[sessionId];
+
+      if (activeSessionId === sessionId && sessions.length > 0) {
+        activeSessionId = sessions[0].id;
+        currentSessionName.textContent = sessions[0].name;
+      }
+
+      saveSession();
+      saveMessages();
+      renderSessionList();
+      renderMessages();
+    }
+
+    function renderSessionList() {
+      if (sessions.length === 0) {
+        sessionList.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📂</div>
+            <div class="empty-text">暂无会话，点击下方按钮创建</div>
+          </div>
+        `;
+        return;
+      }
+
+      sessionList.innerHTML = sessions.map(session => {
+        const isActive = session.id === activeSessionId;
+        return `
+          <div class="session-item ${isActive ? 'active' : ''}" data-session-id="${session.id}">
+            <div class="session-icon">${isActive ? '✦' : '📁'}</div>
+            <div class="session-info">
+              <div class="session-item-name">${escapeHtml(session.name)}</div>
+              <div class="session-item-dir">${escapeHtml(session.workingDirectory)}</div>
+              <div class="session-item-meta">${session.messageCount || 0} 条消息</div>
+            </div>
+            <button class="session-delete" data-delete-session="${session.id}" title="删除">🗑</button>
+          </div>
+        `;
+      }).join('');
+
+      sessionList.querySelectorAll('.session-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          if (e.target.closest('.session-delete')) return;
+          switchSession(item.dataset.sessionId);
+        });
+      });
+
+      sessionList.querySelectorAll('.session-delete').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (confirm('删除此会话？')) {
+            deleteSession(btn.dataset.deleteSession);
+          }
+        });
+      });
+    }
+
+    function switchSession(sessionId) {
+      if (sessionId === activeSessionId) {
+        hideSessionPanel();
+        return;
+      }
+
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'session_switch', sessionId }));
+      }
+
+      activeSessionId = sessionId;
+      const session = sessions.find(s => s.id === sessionId);
+      if (session) {
+        currentSessionName.textContent = session.name;
+      }
+      saveSession();
+      renderMessages();
+      hideSessionPanel();
+    }
+
+    function deleteSession(sessionId) {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'session_delete', sessionId }));
+      }
+    }
+
+    function createNewSession() {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'session_create' }));
+      }
+    }
+
+    function showSessionPanel() {
+      sessionPanel.classList.add('visible');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function hideSessionPanel() {
+      sessionPanel.classList.remove('visible');
+      document.body.style.overflow = '';
+    }
+
+    // ==================== UI ====================
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function showPairingScreen() {
+      pairingScreen.style.display = 'flex';
+      chatScreen.classList.remove('visible');
+      chatScreen.style.display = 'none';
+      pair1.value = '';
+      pair2.value = '';
+      pairingStatus.textContent = '在桌面端获取 8 位配对码';
+      pairingStatus.className = 'status-text';
+      connectBtn.disabled = true;
+      setTimeout(() => pair1.focus(), 100);
+    }
+
+    function showChatScreen() {
+      pairingScreen.style.display = 'none';
+      chatScreen.style.display = 'flex';
+      chatScreen.classList.add('visible');
+      updateConnectionStatus('online');
+      renderMessages();
+      setTimeout(() => messageInput.focus(), 100);
+    }
+
+    function updateConnectionStatus(status) {
+      connectionIndicator.classList.remove('offline', 'reconnecting');
+
+      switch (status) {
+        case 'online':
+          connectionText.textContent = '在线';
+          break;
+        case 'offline':
+          connectionIndicator.classList.add('offline');
+          connectionText.textContent = '离线';
+          break;
+        case 'reconnecting':
+          connectionIndicator.classList.add('reconnecting');
+          connectionText.textContent = `重连 ${reconnectAttempts}/${maxReconnectAttempts}`;
+          break;
+      }
+    }
+
+    function addMessage(content, type, sessionId = null) {
+      const targetSessionId = sessionId || activeSessionId || 'default';
+
+      if (!sessionMessages[targetSessionId]) {
+        sessionMessages[targetSessionId] = [];
+      }
+
+      sessionMessages[targetSessionId].push({
+        content,
+        type,
+        timestamp: Date.now()
+      });
+
+      if (sessionMessages[targetSessionId].length > 100) {
+        sessionMessages[targetSessionId] = sessionMessages[targetSessionId].slice(-100);
+      }
+
+      saveMessages();
+
+      if (targetSessionId === activeSessionId || !activeSessionId) {
+        renderMessageElement(content, type);
+      }
+    }
+
+    function renderMessageElement(content, type) {
+      const div = document.createElement('div');
+      div.className = `message ${type}`;
+
+      let html = content
+        .replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      div.innerHTML = html;
+      messagesContainer.appendChild(div);
+
+      requestAnimationFrame(() => {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      });
+    }
+
+    function renderMessages() {
+      messagesContainer.innerHTML = '';
+      const messages = sessionMessages[activeSessionId] || [];
+
+      if (messages.length === 0) {
+        messagesContainer.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">💬</div>
+            <div class="empty-text">发送消息开始与 Claude 对话</div>
+          </div>
+        `;
+        return;
+      }
+
+      messages.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = `message ${msg.type}`;
+        let html = msg.content
+          .replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+          .replace(/`([^`]+)`/g, '<code>$1</code>');
+        div.innerHTML = html;
+        messagesContainer.appendChild(div);
+      });
+
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function showTyping() {
+      typingIndicator.classList.add('visible');
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function hideTyping() {
+      typingIndicator.classList.remove('visible');
+    }
+
+    // ==================== Event Handlers ====================
+    pair1.addEventListener('input', handlePairInput);
+    pair2.addEventListener('input', handlePairInput);
+
+    pair1.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && pair1.value === '') return;
+    });
+
+    pair2.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && pair2.value === '') {
+        pair1.focus();
+        pair1.setSelectionRange(pair1.value.length, pair1.value.length);
+      }
+    });
+
+    function handlePairInput(e) {
+      const input = e.target;
+      input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+      if (input === pair1 && input.value.length === 4) {
+        pair2.focus();
+      }
+
+      updateConnectButton();
+    }
+
+    function updateConnectButton() {
+      const code = `${pair1.value}-${pair2.value}`;
+      connectBtn.disabled = code.length !== 9;
+    }
+
+    connectBtn.addEventListener('click', async () => {
+      const pairCode = `${pair1.value}-${pair2.value}`;
+      await connectWithPairCode(pairCode);
+    });
+
+    async function connectWithPairCode(pairCode) {
+      connectBtn.disabled = true;
+      pairingStatus.textContent = '正在连接...';
+      pairingStatus.className = 'status-text';
+
+      try {
+        await connectWebSocket(false);
+        pairingStatus.textContent = '验证中...';
+
+        const response = await fetch(`${config.httpUrl}/api/pair/confirm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pairCode, deviceId, deviceName })
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.data.success) {
+          pairingStatus.textContent = '配对成功';
+          pairingStatus.className = 'status-text success';
+        } else {
+          throw new Error(data.data?.error || data.error || '配对失败');
+        }
+      } catch (error) {
+        pairingStatus.textContent = error.message;
+        pairingStatus.className = 'status-text error';
+        connectBtn.disabled = false;
+        ws?.close();
+      }
+    }
+
+    disconnectBtn.addEventListener('click', () => {
+      if (confirm('断开连接？')) {
+        clearSession();
+        clearTimeout(reconnectTimeout);
+        reconnectAttempts = maxReconnectAttempts;
+        ws?.close();
+        pairId = null;
+        paired = false;
+        sessions = [];
+        activeSessionId = null;
+        sessionMessages = {};
+        showPairingScreen();
+      }
+    });
+
+    sessionSelector.addEventListener('click', showSessionPanel);
+    sessionPanelClose.addEventListener('click', hideSessionPanel);
+    sessionPanelBackdrop.addEventListener('click', hideSessionPanel);
+    newSessionBtn.addEventListener('click', createNewSession);
+
+    function sendMessage() {
+      const content = messageInput.value.trim();
+      if (!content || !paired || ws?.readyState !== WebSocket.OPEN) return;
+
+      addMessage(content, 'user', activeSessionId);
+      ws.send(JSON.stringify({
+        type: 'message',
+        payload: {
+          id: Date.now().toString(),
+          content,
+          timestamp: Date.now(),
+          sessionId: activeSessionId || 'default'
+        }
+      }));
+
+      messageInput.value = '';
+      messageInput.style.height = 'auto';
+      showTyping();
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+
+    messageInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    messageInput.addEventListener('input', () => {
+      messageInput.style.height = 'auto';
+      messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+    });
+
+    // Focus handling for mobile
+    messageInput.addEventListener('focus', () => {
+      setTimeout(() => {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }, 300);
+    });
+
+    // Heartbeat
+    setInterval(() => {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 25000);
+
+    // Visibility change
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && pairId) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          reconnectAttempts = 0;
+          handleDisconnect();
+        }
+      }
+    });
+
+    // ==================== Initialization ====================
+    async function init() {
+      loadMessages();
+
+      const savedSession = loadSession();
+
+      if (savedSession) {
+        deviceId = savedSession.deviceId;
+        pairId = savedSession.pairId;
+        activeSessionId = savedSession.activeSessionId;
+
+        pairingStatus.textContent = '恢复会话中...';
+
+        try {
+          await connectWebSocket(true);
+          ws.send(JSON.stringify({ type: 'rejoin', pairId }));
+          showChatScreen();
+          updateConnectionStatus('reconnecting');
+        } catch (e) {
+          clearSession();
+          deviceId = generateDeviceId();
+          pairId = null;
+          showPairingScreen();
+        }
+      } else {
+        deviceId = generateDeviceId();
+        showPairingScreen();
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

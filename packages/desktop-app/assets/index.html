@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Remote</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0d0d14;
+      --bg-secondary: #13131f;
+      --bg-tertiary: #1a1a2e;
+      --bg-hover: #222238;
+      --text-primary: #f0f0f5;
+      --text-secondary: #8888aa;
+      --text-muted: #555577;
+      --accent: #ff8a65;
+      --accent-dim: rgba(255, 138, 101, 0.15);
+      --success: #4ecdc4;
+      --warning: #ffd93d;
+      --error: #ff6b6b;
+      --border: rgba(255, 255, 255, 0.06);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      overflow: hidden;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+
+    .title-bar {
+      height: 38px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-app-region: drag;
+    }
+
+    .title-bar__logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .title-bar__logo-icon {
+      width: 18px;
+      height: 18px;
+      background: linear-gradient(135deg, var(--accent) 0%, #ff6b6b 100%);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+    }
+
+    .main {
+      height: calc(100vh - 38px);
+      display: flex;
+      flex-direction: column;
+      -webkit-app-region: no-drag;
+    }
+
+    .screen {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .screen.active { display: flex; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Setup Screen */
+    .setup-screen {
+      padding: 32px;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .setup-screen__icon {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, var(--accent) 0%, #ff6b6b 100%);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      margin-bottom: 24px;
+      box-shadow: 0 12px 40px rgba(255, 138, 101, 0.3);
+    }
+
+    .setup-screen__title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .setup-screen__subtitle {
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+      font-size: 14px;
+    }
+
+    .setup-form {
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .form-group__label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .dir-picker {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .dir-picker__btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 16px;
+      background: var(--bg-tertiary);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .dir-picker__btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .dir-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .dir-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .dir-item__path {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dir-item__remove {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 0 4px;
+    }
+
+    .dir-item__remove:hover { color: var(--error); }
+
+    .btn-primary {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--accent) 0%, #ff6b6b 100%);
+      border: none;
+      border-radius: var(--radius-sm);
+      color: white;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      margin-top: 8px;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(255, 138, 101, 0.4);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Pairing Screen */
+    .pairing-screen {
+      padding: 32px;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .server-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(78, 205, 196, 0.15);
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--success);
+      margin-bottom: 24px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .mobile-url-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 24px;
+      width: 100%;
+      max-width: 340px;
+    }
+
+    .mobile-url-card__label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .mobile-url-card__url {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--accent);
+      word-break: break-all;
+    }
+
+    .pairing-code-section {
+      margin-bottom: 24px;
+    }
+
+    .pairing-code-section__label {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .pairing-code {
+      font-family: var(--font-mono);
+      font-size: 48px;
+      font-weight: 700;
+      letter-spacing: 8px;
+      color: var(--text-primary);
+      text-shadow: 0 4px 24px rgba(255, 138, 101, 0.3);
+    }
+
+    .pairing-screen__hint {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 24px;
+      max-width: 300px;
+    }
+
+    .btn-secondary {
+      padding: 12px 24px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    /* Connected Screen */
+    .connected-screen { padding: 24px; }
+
+    .connected-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .connected-header__status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .connected-header__badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: rgba(78, 205, 196, 0.15);
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--success);
+    }
+
+    .connected-header__badge .status-dot { animation: none; }
+
+    .connected-header__title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .session-panel {
+      background: var(--bg-secondary);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+
+    .session-panel__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .session-panel__title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .session-panel__count {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 4px 8px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+    }
+
+    .session-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .session-item {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .session-item:last-child { border-bottom: none; }
+    .session-item:hover { background: var(--bg-hover); }
+
+    .session-item.active {
+      background: var(--accent-dim);
+      border-left: 3px solid var(--accent);
+    }
+
+    .session-item__name {
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .session-item__badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      background: var(--accent);
+      color: white;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .session-item__count {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 6px;
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      border-radius: 4px;
+      margin-left: auto;
+    }
+
+    .session-item__path {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .message-log {
+      flex: 1;
+      background: var(--bg-secondary);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .message-log__header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .message-log__content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .log-entry {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .log-entry:last-child { border-bottom: none; }
+
+    .log-entry__time {
+      color: var(--text-muted);
+      margin-right: 8px;
+    }
+
+    .log-entry__from {
+      font-weight: 600;
+      margin-right: 8px;
+    }
+
+    .log-entry__from--user { color: var(--accent); }
+    .log-entry__from--claude { color: var(--success); }
+
+    .log-entry__content {
+      color: var(--text-primary);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .empty-state__icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="title-bar">
+    <div class="title-bar__logo">
+      <div class="title-bar__logo-icon">C</div>
+      Claude Remote
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- Setup Screen -->
+    <div id="setupScreen" class="screen setup-screen active">
+      <div class="setup-screen__icon">⚡</div>
+      <h1 class="setup-screen__title">Claude Remote</h1>
+      <p class="setup-screen__subtitle">Control Claude CLI from your mobile device</p>
+
+      <form class="setup-form" onsubmit="startConnection(event)">
+        <div class="form-group">
+          <label class="form-group__label">Allowed Directories</label>
+          <div class="dir-picker">
+            <button type="button" class="dir-picker__btn" onclick="selectDirectories()">
+              <span>📁</span> Add Directories
+            </button>
+            <div id="dirList" class="dir-list"></div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" id="startBtn">
+          Start Server
+        </button>
+      </form>
+    </div>
+
+    <!-- Pairing Screen -->
+    <div id="pairingScreen" class="screen pairing-screen">
+      <div class="server-status">
+        <div class="status-dot"></div>
+        Server Running
+      </div>
+
+      <div class="mobile-url-card">
+        <div class="mobile-url-card__label">Open on your phone</div>
+        <div class="mobile-url-card__url" id="mobileUrl">http://...</div>
+      </div>
+
+      <div class="pairing-code-section">
+        <div class="pairing-code-section__label">Then enter this code</div>
+        <div id="pairCodeDisplay" class="pairing-code">------</div>
+      </div>
+
+      <p class="pairing-screen__hint">
+        Make sure your phone is connected to the same WiFi network as this computer
+      </p>
+
+      <button class="btn-secondary" onclick="stopAndReset()">Stop Server</button>
+    </div>
+
+    <!-- Connected Screen -->
+    <div id="connectedScreen" class="screen connected-screen">
+      <div class="connected-header">
+        <div class="connected-header__status">
+          <div class="connected-header__badge">
+            <div class="status-dot"></div>
+            Connected
+          </div>
+          <h2 class="connected-header__title">Mobile Paired</h2>
+        </div>
+        <button class="btn-secondary" onclick="stopAndReset()">Disconnect</button>
+      </div>
+
+      <div class="session-panel">
+        <div class="session-panel__header">
+          <span class="session-panel__title">Sessions</span>
+          <span class="session-panel__count" id="sessionCount">0</span>
+        </div>
+        <div class="session-list" id="sessionList">
+          <div class="empty-state">
+            <div class="empty-state__icon">📂</div>
+            <span>No active sessions</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="message-log">
+        <div class="message-log__header">Activity Log</div>
+        <div class="message-log__content" id="messageLog">
+          <div class="empty-state">
+            <div class="empty-state__icon">💬</div>
+            <span>Messages will appear here</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let allowedDirs = [];
+    let sessions = [];
+    let activeSessionId = null;
+    let sessionMessages = {}; // Messages per session
+    let localIP = 'localhost';
+    const PORT = 4000;
+
+    // DOM Elements
+    const setupScreen = document.getElementById('setupScreen');
+    const pairingScreen = document.getElementById('pairingScreen');
+    const connectedScreen = document.getElementById('connectedScreen');
+    const dirList = document.getElementById('dirList');
+    const pairCodeDisplay = document.getElementById('pairCodeDisplay');
+    const mobileUrl = document.getElementById('mobileUrl');
+    const sessionList = document.getElementById('sessionList');
+    const sessionCount = document.getElementById('sessionCount');
+    const messageLog = document.getElementById('messageLog');
+    const startBtn = document.getElementById('startBtn');
+
+    function showScreen(screen) {
+      setupScreen.classList.remove('active');
+      pairingScreen.classList.remove('active');
+      connectedScreen.classList.remove('active');
+      screen.classList.add('active');
+    }
+
+    async function selectDirectories() {
+      const dirs = await window.electronAPI.selectDirectory();
+      if (dirs && dirs.length > 0) {
+        for (const dir of dirs) {
+          if (!allowedDirs.includes(dir)) {
+            allowedDirs.push(dir);
+          }
+        }
+        renderDirList();
+      }
+    }
+
+    function removeDir(index) {
+      allowedDirs.splice(index, 1);
+      renderDirList();
+    }
+
+    function renderDirList() {
+      if (allowedDirs.length === 0) {
+        dirList.innerHTML = '';
+        return;
+      }
+      dirList.innerHTML = allowedDirs.map((dir, i) => `
+        <div class="dir-item">
+          <span class="dir-item__path" title="${dir}">${dir}</span>
+          <button class="dir-item__remove" onclick="removeDir(${i})">×</button>
+        </div>
+      `).join('');
+    }
+
+    async function startConnection(event) {
+      event.preventDefault();
+
+      // Get local IP first
+      localIP = await window.electronAPI.getLocalIP();
+
+      // Use home directory if no dirs selected
+      if (allowedDirs.length === 0) {
+        allowedDirs.push('/Users');
+      }
+
+      startBtn.disabled = true;
+      startBtn.innerHTML = '<span class="loading"></span>';
+
+      try {
+        // 1. Start embedded server
+        const serverResult = await window.electronAPI.startServer(PORT);
+        if (!serverResult.success) {
+          throw new Error(serverResult.error || 'Failed to start server');
+        }
+
+        // 2. Start Claude service connecting to local server
+        const relayUrl = `http://localhost:${PORT}`;
+        const claudeResult = await window.electronAPI.startClaude({
+          relayUrl,
+          allowedDirs
+        });
+
+        if (!claudeResult.success) {
+          throw new Error(claudeResult.error || 'Failed to start Claude service');
+        }
+
+        // Show pairing screen with mobile URL
+        mobileUrl.textContent = `http://${localIP}:${PORT}`;
+        showScreen(pairingScreen);
+
+      } catch (error) {
+        alert('Error: ' + error.message);
+        startBtn.disabled = false;
+        startBtn.textContent = 'Start Server';
+      }
+    }
+
+    async function stopAndReset() {
+      await window.electronAPI.stopClaude();
+      await window.electronAPI.stopServer();
+      sessions = [];
+      sessionMessages = {};
+      activeSessionId = null;
+      renderSessions();
+      renderMessages();
+      startBtn.disabled = false;
+      startBtn.textContent = 'Start Server';
+      showScreen(setupScreen);
+    }
+
+    function renderSessions() {
+      sessionCount.textContent = sessions.length;
+      if (sessions.length === 0) {
+        sessionList.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state__icon">📂</div>
+            <span>No active sessions</span>
+          </div>
+        `;
+        return;
+      }
+
+      sessionList.innerHTML = sessions.map(session => {
+        const msgCount = (sessionMessages[session.id] || []).length;
+        return `
+          <div class="session-item ${session.id === activeSessionId ? 'active' : ''}" data-session-id="${session.id}">
+            <div class="session-item__name">
+              ${escapeHtml(session.name)}
+              ${session.id === activeSessionId ? '<span class="session-item__badge">Active</span>' : ''}
+              ${msgCount > 0 ? `<span class="session-item__count">${msgCount}</span>` : ''}
+            </div>
+            <div class="session-item__path">${escapeHtml(session.workingDirectory)}</div>
+          </div>
+        `;
+      }).join('');
+
+      // Add click handlers
+      sessionList.querySelectorAll('.session-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const sessionId = item.dataset.sessionId;
+          switchSession(sessionId);
+        });
+      });
+    }
+
+    function switchSession(sessionId) {
+      if (sessionId === activeSessionId) return;
+      activeSessionId = sessionId;
+      renderSessions();
+      renderMessages();
+    }
+
+    function renderMessages() {
+      const messages = sessionMessages[activeSessionId] || [];
+
+      if (messages.length === 0) {
+        const sessionName = sessions.find(s => s.id === activeSessionId)?.name || 'this session';
+        messageLog.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state__icon">💬</div>
+            <span>No messages in ${escapeHtml(sessionName)}</span>
+          </div>
+        `;
+        return;
+      }
+
+      messageLog.innerHTML = messages.slice(-50).map(msg => `
+        <div class="log-entry">
+          <span class="log-entry__time">${formatTime(msg.timestamp)}</span>
+          <span class="log-entry__from log-entry__from--${msg.from}">[${msg.from}]</span>
+          <span class="log-entry__content">${escapeHtml(msg.content.substring(0, 500))}${msg.content.length > 500 ? '...' : ''}</span>
+        </div>
+      `).join('');
+      messageLog.scrollTop = messageLog.scrollHeight;
+    }
+
+    function formatTime(timestamp) {
+      return new Date(timestamp || Date.now()).toLocaleTimeString('en-US', { hour12: false });
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Event Listeners
+    window.electronAPI.onPairCode((code) => {
+      pairCodeDisplay.textContent = code;
+    });
+
+    window.electronAPI.onPaired((pairId) => {
+      showScreen(connectedScreen);
+    });
+
+    window.electronAPI.onUnpaired(() => {
+      showScreen(pairingScreen);
+    });
+
+    window.electronAPI.onSessions((newSessions) => {
+      sessions = newSessions;
+      if (newSessions.length > 0 && !activeSessionId) {
+        activeSessionId = newSessions[0].id;
+      }
+      renderSessions();
+    });
+
+    window.electronAPI.onMessage((msg) => {
+      const sessionId = msg.sessionId || activeSessionId || 'default';
+      if (!sessionMessages[sessionId]) {
+        sessionMessages[sessionId] = [];
+      }
+      sessionMessages[sessionId].push({ ...msg, timestamp: Date.now() });
+
+      // Keep only last 100 messages per session
+      if (sessionMessages[sessionId].length > 100) {
+        sessionMessages[sessionId] = sessionMessages[sessionId].slice(-100);
+      }
+
+      renderSessions(); // Update message counts
+      if (sessionId === activeSessionId) {
+        renderMessages();
+      }
+    });
+
+    window.electronAPI.onError((error) => {
+      console.error('Error:', error);
+    });
+
+    // Also update the message log header to show current session
+    function updateMessageLogHeader() {
+      const header = document.querySelector('.message-log__header');
+      if (activeSessionId && sessions.length > 0) {
+        const session = sessions.find(s => s.id === activeSessionId);
+        if (session) {
+          header.textContent = `Activity Log - ${session.name}`;
+          return;
+        }
+      }
+      header.textContent = 'Activity Log';
+    }
+
+    // Override renderMessages to also update header
+    const originalRenderMessages = renderMessages;
+    renderMessages = function() {
+      updateMessageLogHeader();
+      originalRenderMessages();
+    };
+
+    // Initialize
+    renderDirList();
+    renderSessions();
+    renderMessages();
+  </script>
+</body>
+</html>
