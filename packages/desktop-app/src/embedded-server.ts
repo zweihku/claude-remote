@@ -80,15 +80,17 @@ export class EmbeddedServer {
   private port: number;
   private mobileHtmlPath: string;
 
-  constructor(port: number = 4000) {
+  constructor(port: number = 4000, assetsPath?: string) {
     this.port = port;
     this.store = {
       clients: new Map(),
       pendingPairs: new Map(),
       rooms: new Map(),
     };
-    // Path to mobile web UI
-    this.mobileHtmlPath = path.join(__dirname, '../assets/mobile.html');
+    // Path to mobile web UI - use provided path or default to dev path
+    this.mobileHtmlPath = assetsPath
+      ? path.join(assetsPath, 'mobile.html')
+      : path.join(__dirname, '../assets/mobile.html');
   }
 
   start(): Promise<{ port: number; localIP: string }> {
@@ -98,6 +100,11 @@ export class EmbeddedServer {
       this.wss = new WebSocketServer({ server: this.server });
       this.setupWebSocket();
       this.startHeartbeat();
+
+      // Log upgrade requests
+      this.server.on('upgrade', (req, socket, head) => {
+        console.log(`[EmbeddedServer] Upgrade request from ${req.socket.remoteAddress}`);
+      });
 
       this.server.listen(this.port, '0.0.0.0', () => {
         const localIP = getLocalIP();
@@ -129,6 +136,7 @@ export class EmbeddedServer {
 
   private handleHTTP(req: IncomingMessage, res: ServerResponse): void {
     const url = req.url || '/';
+    console.log(`[HTTP] ${req.method} ${url} from ${req.socket.remoteAddress}`);
 
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -136,8 +144,106 @@ export class EmbeddedServer {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
+      console.log(`[HTTP] OPTIONS preflight for ${url}`);
       res.writeHead(200);
       res.end();
+      return;
+    }
+
+    // Simple test endpoint
+    if (url === '/test') {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end('<h1>OK</h1>');
+      return;
+    }
+
+    // Clear storage page
+    if (url === '/clear') {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(`<!DOCTYPE html>
+<html>
+<head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Clear Data</title>
+<style>body{font-family:system-ui;padding:20px;background:#1a1a2e;color:#fff;text-align:center;}
+button{padding:20px 40px;font-size:18px;margin:20px;background:#ff8a65;border:none;border-radius:8px;}
+.success{color:#4ade80;font-size:20px;margin-top:20px;}</style>
+</head>
+<body>
+<h2>清除本地数据</h2>
+<p>这将清除所有保存的会话数据</p>
+<button onclick="clearAll()">清除数据</button>
+<div id="status"></div>
+<script>
+function clearAll() {
+  try {
+    localStorage.clear();
+    sessionStorage.clear();
+    document.getElementById('status').innerHTML = '<p class="success">✅ 已清除！<br>请访问 <a href="/" style="color:#ff8a65">主页</a> 重新配对</p>';
+  } catch(e) {
+    document.getElementById('status').innerHTML = '<p style="color:red">❌ 清除失败: ' + e.message + '</p>';
+  }
+}
+</script>
+</body>
+</html>`);
+      return;
+    }
+
+    // WebSocket connection test page
+    if (url === '/wstest') {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(`<!DOCTYPE html>
+<html>
+<head><meta name="viewport" content="width=device-width,initial-scale=1"><title>WS Test</title>
+<style>body{font-family:system-ui;padding:20px;background:#1a1a2e;color:#fff}#log{background:#000;padding:10px;margin:10px 0;min-height:200px;font-family:monospace;font-size:12px;}button{padding:15px 30px;font-size:16px;margin:10px 5px;}</style>
+</head>
+<body>
+<h2>WebSocket Test</h2>
+<button id="connectBtn">点击连接 WebSocket</button>
+<button id="autoBtn">自动连接（页面加载）</button>
+<div id="log"></div>
+<script>
+const log = (msg) => { document.getElementById('log').innerHTML += msg + '<br>'; };
+const wsUrl = 'ws://' + location.host;
+
+function testConnect(source) {
+  log(source + ' - Connecting to: ' + wsUrl);
+  try {
+    const ws = new WebSocket(wsUrl);
+    ws.onopen = () => log('✅ Connected!');
+    ws.onerror = (e) => log('❌ Error');
+    ws.onclose = (e) => log('🔴 Closed: code=' + e.code);
+    ws.onmessage = (e) => log('📩 ' + e.data);
+    setTimeout(() => { if(ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:'ping'}));log('📤 Sent ping');} }, 1000);
+  } catch(e) { log('❌ Exception: ' + e.message); }
+}
+
+document.getElementById('connectBtn').onclick = () => testConnect('点击触发');
+document.getElementById('autoBtn').onclick = () => location.reload();
+
+// Auto connect on load
+testConnect('页面加载');
+</script>
+</body>
+</html>`);
+      return;
+    }
+
+    // Test with different sizes: /test/1k, /test/10k, /test/50k
+    if (url.startsWith('/test/')) {
+      const sizeStr = url.split('/')[2];
+      const size = parseInt(sizeStr) * 1024 || 1024;
+      const content = 'x'.repeat(size);
+      res.writeHead(200, {
+        'Content-Type': 'text/plain',
+        'Content-Length': content.length
+      });
+      res.end(content);
+      return;
+    }
+
+    // Serve mobile UI at /mobile path for testing
+    if (url === '/mobile') {
+      this.serveMobileUI(res);
       return;
     }
 
@@ -155,12 +261,14 @@ export class EmbeddedServer {
     const url = req.url || '';
 
     if (url === '/api/pair/request' && req.method === 'POST') {
+      console.log(`[EmbeddedServer] Pair request from ${req.socket.remoteAddress}`);
       let body = '';
       req.on('data', (chunk) => (body += chunk));
       req.on('end', () => {
         try {
           const { deviceId, deviceName, platform } = JSON.parse(body);
           const result = this.requestPairCode(deviceId, deviceName, platform);
+          console.log(`[EmbeddedServer] Generated pair code: ${result.pairCode}`);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, data: result }));
         } catch (error) {
@@ -172,12 +280,15 @@ export class EmbeddedServer {
     }
 
     if (url === '/api/pair/confirm' && req.method === 'POST') {
+      console.log(`[EmbeddedServer] Pair confirm request from ${req.socket.remoteAddress}`);
       let body = '';
       req.on('data', (chunk) => (body += chunk));
       req.on('end', () => {
         try {
+          console.log(`[EmbeddedServer] Pair confirm body: ${body}`);
           const { pairCode, deviceId, deviceName, platform } = JSON.parse(body);
           const result = this.confirmPairCode(pairCode, deviceId, deviceName, platform);
+          console.log(`[EmbeddedServer] Pair confirm result: ${JSON.stringify(result)}`);
 
           if (result.success && result.pairId) {
             this.notifyPairing(result.pairId);
@@ -200,9 +311,14 @@ export class EmbeddedServer {
   private serveMobileUI(res: ServerResponse): void {
     // Check if mobile.html exists
     if (fs.existsSync(this.mobileHtmlPath)) {
-      const html = fs.readFileSync(this.mobileHtmlPath, 'utf-8');
-      res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(html);
+      const stat = fs.statSync(this.mobileHtmlPath);
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Length': stat.size,
+      });
+      const stream = fs.createReadStream(this.mobileHtmlPath);
+      stream.pipe(res);
+      return;
     } else {
       // Fallback simple page
       res.writeHead(200, { 'Content-Type': 'text/html' });

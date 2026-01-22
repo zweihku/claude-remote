@@ -3,6 +3,14 @@ import * as path from 'path';
 import { ClaudeService } from './claude-service';
 import { EmbeddedServer, getLocalIP } from './embedded-server';
 
+// Get the correct assets path for both dev and packaged app
+function getAssetsPath(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'assets');
+  }
+  return path.join(__dirname, '../assets');
+}
+
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let claudeService: ClaudeService | null = null;
@@ -25,7 +33,7 @@ const createWindow = () => {
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, '../assets/index.html'));
+  mainWindow.loadFile(path.join(getAssetsPath(), 'index.html'));
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -100,7 +108,7 @@ const setupIPC = () => {
       if (embeddedServer) {
         embeddedServer.stop();
       }
-      embeddedServer = new EmbeddedServer(port);
+      embeddedServer = new EmbeddedServer(port, getAssetsPath());
       const result = await embeddedServer.start();
       return { success: true, ...result };
     } catch (error) {

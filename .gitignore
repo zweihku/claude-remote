@@ -2,3 +2,17 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+# Build outputs
+release/
+packages/desktop-app/release/
+*.dmg
+*.zip
+*.app
+
+# Temp files
+checkpoint.md
+checkpoint.zip
+test.md
+*.tmp
+.tmp.driveupload/

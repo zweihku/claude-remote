@@ -10,18 +10,18 @@ COPY turbo.json ./
 COPY packages/shared ./packages/shared
 COPY packages/relay ./packages/relay
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (including devDependencies for build)
+RUN npm install
 
 # Build shared first, then relay
-RUN npm run build:shared
-RUN npm run build:relay
+RUN npm run build -w @claude-remote/shared
+RUN npm run build -w @claude-remote/relay
 
 # Set working directory to relay
 WORKDIR /app/packages/relay
 
-# Expose ports
-EXPOSE 3000 3001
+# Expose port (Railway uses PORT env var)
+EXPOSE 3000
 
 # Start the relay server
 CMD ["node", "dist/index.js"]

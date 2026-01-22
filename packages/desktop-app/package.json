@@ -9,10 +9,10 @@
     "build": "tsc",
     "start": "npm run build && electron .",
     "dev": "tsc && electron .",
-    "package": "npm run build && electron-builder",
-    "package:mac": "npm run build && electron-builder --mac",
-    "package:win": "npm run build && electron-builder --win",
-    "package:linux": "npm run build && electron-builder --linux"
+    "package": "npm run build && electron-builder --config.npmRebuild=false",
+    "package:mac": "npm run build && electron-builder --mac --config.npmRebuild=false",
+    "package:win": "npm run build && electron-builder --win --config.npmRebuild=false",
+    "package:linux": "npm run build && electron-builder --linux --config.npmRebuild=false"
   },
   "dependencies": {
     "@claude-remote/shared": "*",
@@ -21,13 +21,15 @@
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/ws": "^8.5.10",
-    "electron": "^28.0.0",
+    "7zip-bin": "^5.2.0",
+    "electron": "28.3.3",
     "electron-builder": "^24.9.1",
     "typescript": "^5.3.2"
   },
   "build": {
     "appId": "com.claude-remote.desktop",
     "productName": "Claude Remote",
+    "asar": false,
     "directories": {
       "output": "release"
     },
@@ -37,17 +39,30 @@
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
-      "icon": "assets/icon.icns",
-      "target": ["dmg", "zip"]
+      "target": [
+        "dir"
+      ],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "win": {
-      "icon": "assets/icon.ico",
-      "target": ["nsis", "portable"]
+      "target": [
+        "nsis",
+        "portable"
+      ]
     },
     "linux": {
-      "icon": "assets/icon.png",
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Development"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets"
+      }
+    ]
   }
 }
