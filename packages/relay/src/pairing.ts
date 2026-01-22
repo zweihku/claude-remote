@@ -2,12 +2,11 @@ import { PAIR_CODE_LENGTH, PAIR_CODE_EXPIRY_MS } from '@claude-remote/shared';
 import { v4 as uuidv4 } from 'uuid';
 import type { PendingPair, Room, ConnectionStore } from './types.js';
 
-// Generate a random pair code (8 characters, format: XXXX-XXXX)
+// Generate a random pair code (4 characters)
 export function generatePairCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excludes confusing characters
   let code = '';
   for (let i = 0; i < PAIR_CODE_LENGTH; i++) {
-    if (i === 4) code += '-';
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return code;
@@ -55,16 +54,15 @@ export class PairingService {
     platform: 'desktop' | 'web'
   ): { success: boolean; pairId?: string; error?: string } {
     const normalizedCode = pairCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const formattedCode = normalizedCode.slice(0, 4) + '-' + normalizedCode.slice(4);
 
-    const pendingPair = this.store.pendingPairs.get(formattedCode);
+    const pendingPair = this.store.pendingPairs.get(normalizedCode);
 
     if (!pendingPair) {
       return { success: false, error: 'Invalid pair code' };
     }
 
     if (Date.now() > pendingPair.expiresAt) {
-      this.store.pendingPairs.delete(formattedCode);
+      this.store.pendingPairs.delete(normalizedCode);
       return { success: false, error: 'Pair code expired' };
     }
 
@@ -83,7 +81,7 @@ export class PairingService {
     };
 
     this.store.rooms.set(pairId, room);
-    this.store.pendingPairs.delete(formattedCode);
+    this.store.pendingPairs.delete(normalizedCode);
 
     // Update connected clients with pairId
     const initiatorClient = this.store.clients.get(pendingPair.deviceId);

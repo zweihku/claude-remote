@@ -114,8 +114,12 @@ export class ClaudeService extends EventEmitter {
 
   private connectWebSocket(): Promise<void> {
     return new Promise((resolve, reject) => {
-      // Use 127.0.0.1 instead of localhost to avoid IPv6 issues
-      const wsUrl = this.relayUrl.replace(/^http/, 'ws').replace('localhost', '127.0.0.1');
+      // Convert HTTP(S) to WS(S)
+      let wsUrl = this.relayUrl.replace(/^http/, 'ws');
+      // Use 127.0.0.1 instead of localhost to avoid IPv6 issues (only for local URLs)
+      if (wsUrl.includes('localhost')) {
+        wsUrl = wsUrl.replace('localhost', '127.0.0.1');
+      }
       this.ws = new WebSocket(wsUrl);
 
       this.ws.on('open', () => {
