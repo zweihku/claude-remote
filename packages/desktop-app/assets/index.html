@@ -207,6 +207,34 @@
 
     .dir-item__remove:hover { color: var(--error); }
 
+    .form-input {
+      width: 100%;
+      padding: 14px 16px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    .form-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .form-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
     .btn-primary {
       width: 100%;
       padding: 16px;
@@ -562,6 +590,16 @@
 
       <form class="setup-form" onsubmit="startConnection(event)">
         <div class="form-group">
+          <label class="form-group__label">Relay Server</label>
+          <input type="text"
+                 id="serverUrl"
+                 class="form-input"
+                 placeholder="https://your-server.railway.app"
+                 value="">
+          <div class="form-hint">Deploy your own relay server or use a public one</div>
+        </div>
+
+        <div class="form-group">
           <label class="form-group__label">Allowed Directories</label>
           <div class="dir-picker">
             <button type="button" class="dir-picker__btn" onclick="selectDirectories()">
@@ -581,7 +619,7 @@
     <div id="pairingScreen" class="screen pairing-screen">
       <div class="server-status">
         <div class="status-dot"></div>
-        Server Running
+        Connected to Relay Server
       </div>
 
       <div class="mobile-url-card">
@@ -595,7 +633,7 @@
       </div>
 
       <p class="pairing-screen__hint">
-        Make sure your phone is connected to the same WiFi network as this computer
+        Open the URL above on your phone and enter the pairing code to connect
       </p>
 
       <button class="btn-secondary" onclick="stopAndReset()">Stop Server</button>
@@ -695,11 +733,53 @@
       `).join('');
     }
 
-    // Cloud server URL
-    const RELAY_SERVER = 'https://web-production-28761.up.railway.app';
+    // Server URL Management
+    const STORAGE_KEY = 'claude-remote-server-url';
+    const serverUrlInput = document.getElementById('serverUrl');
+
+    // Load saved server URL
+    function loadServerUrl() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      serverUrlInput.value = saved || '';
+    }
+
+    // Save server URL
+    function saveServerUrl(url) {
+      localStorage.setItem(STORAGE_KEY, url);
+    }
+
+    // Validate URL format
+    function isValidUrl(string) {
+      try {
+        const url = new URL(string);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+      } catch (_) {
+        return false;
+      }
+    }
 
     async function startConnection(event) {
       event.preventDefault();
+
+      // Get and validate server URL
+      let serverUrl = serverUrlInput.value.trim();
+      if (!serverUrl) {
+        alert('Please enter a relay server URL');
+        serverUrlInput.focus();
+        return;
+      }
+
+      // Remove trailing slash
+      serverUrl = serverUrl.replace(/\/+$/, '');
+
+      if (!isValidUrl(serverUrl)) {
+        alert('Please enter a valid server URL (e.g., https://your-server.railway.app)');
+        serverUrlInput.focus();
+        return;
+      }
+
+      // Save the URL for next time
+      saveServerUrl(serverUrl);
 
       // Use home directory if no dirs selected
       if (allowedDirs.length === 0) {
@@ -710,8 +790,8 @@
       startBtn.innerHTML = '<span class="loading"></span>';
 
       try {
-        // Connect to cloud relay server
-        const relayUrl = RELAY_SERVER.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
+        // Connect to relay server
+        const relayUrl = serverUrl.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
 
         // Start Claude service
         const claudeResult = await window.electronAPI.startClaude({
@@ -724,7 +804,7 @@
         }
 
         // Show pairing screen with mobile URL
-        mobileUrl.textContent = RELAY_SERVER;
+        mobileUrl.textContent = serverUrl;
         showScreen(pairingScreen);
 
       } catch (error) {
@@ -886,6 +966,7 @@
     };
 
     // Initialize
+    loadServerUrl();
     renderDirList();
     renderSessions();
     renderMessages();
