@@ -41,9 +41,12 @@ Download from [Releases](../../releases):
 
 | Platform | Download |
 |----------|----------|
-| macOS (Apple Silicon) | `Claude.Remote-arm64.app.zip` |
+| macOS (Apple Silicon) | `Claude.Remote-mac-arm64.zip` |
+| Windows (64-bit) | `Claude.Remote-win-x64-Setup.exe` |
+| Windows (Portable) | `Claude.Remote-win-x64-Portable.exe` |
 
-**First launch**: Right-click → Open (to bypass Gatekeeper)
+**macOS**: Right-click → Open (to bypass Gatekeeper)
+**Windows**: Run the installer or portable exe directly
 
 #### Step 3: Connect
 
@@ -107,7 +110,7 @@ The Dockerfile works with any platform supporting containers:
 
 ### Requirements
 
-- **Desktop**: macOS (Apple Silicon / Intel)
+- **Desktop**: macOS (Apple Silicon / Intel) or Windows (64-bit)
 - **Mobile**: Any modern browser (Safari, Chrome, Firefox)
 - **Server**: Node.js 18+ or Docker
 
@@ -150,9 +153,12 @@ Claude Remote 让你可以在手机浏览器上向桌面端的 Claude Code 发�
 
 | 平台 | 下载 |
 |------|------|
-| macOS (Apple Silicon) | `Claude.Remote-arm64.app.zip` |
+| macOS (Apple Silicon) | `Claude.Remote-mac-arm64.zip` |
+| Windows (64位) | `Claude.Remote-win-x64-Setup.exe` |
+| Windows (便携版) | `Claude.Remote-win-x64-Portable.exe` |
 
-**首次启动**：右键点击 → 打开（绕过 Gatekeeper 验证）
+**macOS**：右键点击 → 打开（绕过 Gatekeeper 验证）
+**Windows**：运行安装程序或直接运行便携版
 
 #### 第三步：配对连接
 
@@ -216,7 +222,7 @@ Dockerfile 支持任何容器平台：
 
 ### 系统要求
 
-- **桌面端**：macOS (Apple Silicon / Intel)
+- **桌面端**：macOS (Apple Silicon / Intel) 或 Windows (64位)
 - **手机端**：任意现代浏览器 (Safari, Chrome, Firefox)
 - **服务器**：Node.js 18+ 或 Docker
 
