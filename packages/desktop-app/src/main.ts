@@ -130,7 +130,16 @@ const setupIPC = () => {
     allowedDirs: string[];
   }) => {
     try {
-      claudeService = new ClaudeService(config.relayUrl, config.allowedDirs);
+      // Resolve ~ to actual home directory (cross-platform)
+      const homeDir = app.getPath('home');
+      const resolvedDirs = config.allowedDirs.map(dir => {
+        if (dir === '~' || dir.startsWith('~/')) {
+          return dir.replace(/^~/, homeDir);
+        }
+        return dir;
+      });
+
+      claudeService = new ClaudeService(config.relayUrl, resolvedDirs);
 
       claudeService.on('status', (status) => {
         mainWindow?.webContents.send('claude:status', status);

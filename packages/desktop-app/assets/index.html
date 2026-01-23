@@ -783,7 +783,8 @@
 
       // Use home directory if no dirs selected
       if (allowedDirs.length === 0) {
-        allowedDirs.push('/Users');
+        // Will be resolved to actual home dir by main process
+        allowedDirs.push('~');
       }
 
       startBtn.disabled = true;

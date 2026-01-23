@@ -45,7 +45,35 @@ export class ClaudeService extends EventEmitter {
     this.allowedDirs = allowedDirs.length > 0 ? allowedDirs : [process.cwd()];
     this.defaultDir = this.allowedDirs[0];
     this.deviceId = `desktop-${Date.now()}`;
-    this.claudePath = process.env.CLAUDE_PATH || (process.env.HOME + '/.local/bin/claude');
+    this.claudePath = process.env.CLAUDE_PATH || this.getDefaultClaudePath();
+  }
+
+  private getDefaultClaudePath(): string {
+    if (process.platform === 'win32') {
+      // Windows: Check common installation paths
+      const localAppData = process.env.LOCALAPPDATA || '';
+      const possiblePaths = [
+        path.join(localAppData, 'Programs', 'claude-code', 'claude.exe'),
+        path.join(localAppData, 'claude-code', 'claude.exe'),
+        'claude.exe', // If in PATH
+      ];
+      for (const p of possiblePaths) {
+        if (fs.existsSync(p)) return p;
+      }
+      return 'claude'; // Fallback to PATH
+    } else {
+      // macOS / Linux
+      const home = process.env.HOME || '';
+      const possiblePaths = [
+        path.join(home, '.local', 'bin', 'claude'),
+        path.join(home, '.claude', 'bin', 'claude'),
+        '/usr/local/bin/claude',
+      ];
+      for (const p of possiblePaths) {
+        if (fs.existsSync(p)) return p;
+      }
+      return 'claude'; // Fallback to PATH
+    }
   }
 
   async start(): Promise<void> {
