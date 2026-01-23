@@ -1,18 +1,64 @@
+# Dependencies
 node_modules/
-dist/
-*.log
-.DS_Store
 
 # Build outputs
-release/
+dist/
+
+# Desktop app builds (use GitHub Releases for distribution)
 packages/desktop-app/release/
-*.dmg
-*.zip
+release/*.app
+release/*.zip
+release/*.dmg
 *.app
+*.dmg
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
 
 # Temp files
+*.tmp
+.tmp.driveupload/
 checkpoint.md
 checkpoint.zip
 test.md
-*.tmp
-.tmp.driveupload/
+test-*.ts
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# Old telegram bot code (not part of Claude Remote)
+src/
+bin/
+bot.md
+test-*.ts
+Procfile
+
+# Test utilities (internal)
+packages/relay/src/test-*.ts
+
+# Internal docs (not for public repo)
+docs/commercial-*.md
+docs/multi-session-prd.md
+docs/desktop-app-guide.md
+docs/railway-deploy.md
+PROGRESS.md
+COMMANDS.md
+AGENTS.md
+
+# OpenSpec internal files
+openspec/
+
+# Claude config
+.claude/
+CLAUDE.md

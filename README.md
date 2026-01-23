@@ -1,196 +1,158 @@
-# Claude TG Bridge
+# Claude Remote
 
-通过 Telegram Bot 远程控制 Claude Code CLI，在移动端与本地 Claude 进行完整上下文对话。
+Control [Claude Code CLI](https://github.com/anthropics/claude-code) from your mobile device.
 
-## 当前版本功能 (v1.0)
+Claude Remote lets you send prompts to Claude Code running on your desktop from your phone's browser. Perfect for coding on the go, reviewing code from your couch, or pair programming with AI from anywhere.
 
-- **持久会话**：使用 stream-json 模式保持 Claude 进程常驻，支持多轮对话上下文记忆
-- **完整工具能力**：支持文件读写、代码执行等 Claude Code 全部功能
-- **会话信息查看**：实时查看 session ID、token 用量、费用统计
-- **密码保护**：Telegram 端需要密码验证才能使用
-- **消息队列**：Claude 忙碌时自动排队处理
+## How It Works
 
-## 版本历史
-
-| 版本 | Commit | 说明 |
-|------|--------|------|
-| v1.0 | `2b9f2ac` | 持久会话 + /session 命令（当前版本） |
-| v0.2 | `4264853` | stream-json 持久进程 |
-| v0.1 | `f672ae3` | 基础 spawn 版本 |
-
-回退到指定版本：`git checkout <commit-hash>`
-
----
-
-## 快速开始
-
-### 1. 前置要求
-
-- Node.js 18+
-- Claude Code CLI 已安装并登录 (`claude --version`)
-- Telegram Bot Token（从 @BotFather 获取）
-
-### 2. 安装
-
-```bash
-cd cli-remote
-npm install
-npm run build
+```
+┌─────────────┐         ┌──────────────┐         ┌─────────────┐
+│   Mobile    │ ──────▶ │ Relay Server │ ──────▶ │   Desktop   │
+│  (Browser)  │ ◀────── │   (Cloud)    │ ◀────── │ (Claude CLI)│
+└─────────────┘         └──────────────┘         └─────────────┘
 ```
 
-### 3. 配置
+1. **Desktop App** connects to the relay server and gets a 4-digit pairing code
+2. **Mobile Browser** opens the relay server URL and enters the pairing code
+3. Messages are relayed between mobile and desktop in real-time
+4. Claude Code CLI executes commands locally on your desktop
 
-生成配置文件：
+## Quick Start
+
+### Step 1: Deploy Relay Server (Railway)
+
+1. Create a [Railway](https://railway.app) account
+2. Click **New Project** → **Deploy from GitHub repo**
+3. Connect this repository
+4. Railway auto-detects the Dockerfile and deploys
+5. Go to **Settings** → **Networking** → **Generate Domain**
+6. Note your URL: `https://<project>.up.railway.app`
+
+### Step 2: Download Desktop App
+
+Download from [Releases](../../releases):
+
+| Platform | Download |
+|----------|----------|
+| macOS (Apple Silicon) | `Claude.Remote-arm64.app.zip` |
+| macOS (Intel) | `Claude.Remote-x64.app.zip` |
+
+**First launch**: Right-click → Open (to bypass Gatekeeper)
+
+### Step 3: Connect
+
+**On Desktop:**
+1. Open `Claude Remote.app`
+2. Enter your relay server URL (e.g., `https://xxx.up.railway.app`)
+3. Add directories Claude can access
+4. Click **Connect**
+5. A 4-digit pairing code appears
+
+**On Mobile:**
+1. Open the same relay server URL in your browser
+2. Enter the 4-digit pairing code
+3. Start chatting with Claude!
+
+## Alternative Deployment
+
+### Docker
+
 ```bash
-./bin/claude-tg-bridge.js --init
+docker build -t claude-remote .
+docker run -p 3000:3000 claude-remote
 ```
 
-编辑 `~/.claude-tg-bridge.json`：
-```json
-{
-  "telegram": {
-    "botToken": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
-    "authPassword": "your-secret-password"
-  },
-  "claude": {
-    "workingDirectory": "/path/to/your/project",
-    "additionalArgs": []
-  }
-}
-```
-
-### 4. 启动 Bridge
+### Manual
 
 ```bash
-# 方式一：直接启动
-node dist/index.js
+# Build shared package
+cd packages/shared
+npm install && npm run build
 
-# 方式二：使用 npm
+# Build and run relay server
+cd ../relay
+npm install && npm run build
 npm start
-
-# 方式三：指定工作目录
-./bin/claude-tg-bridge.js -d /path/to/project
-
-# 方式四：后台运行
-nohup node dist/index.js > /tmp/bridge.log 2>&1 &
 ```
 
-### 5. 在 Telegram 中使用
+### Other Cloud Platforms
 
-1. 打开你的 Bot 对话
-2. 发送 `/start`
-3. 输入配置的密码
-4. 验证成功后，直接发送消息即可与 Claude 对话
+The Dockerfile works with any platform supporting containers:
+- [Render](https://render.com)
+- [Fly.io](https://fly.io)
+- [Google Cloud Run](https://cloud.google.com/run)
+- [AWS App Runner](https://aws.amazon.com/apprunner/)
 
----
-
-## Telegram 命令
-
-| 命令 | 说明 |
-|------|------|
-| `/start` | 显示欢迎信息和命令列表 |
-| `/session` | 查看当前会话信息（Session ID、Token 用量、费用） |
-| `/status` | 查看 Claude 运行状态和队列 |
-| `/stop` | 强制停止当前任务并清空队列 |
-| `/restart` | 重启 Claude（开始新会话，清空上下文） |
-
----
-
-## 工作原理
+## Project Structure
 
 ```
-┌─────────────┐     WebSocket      ┌─────────────────┐     stream-json     ┌───────────┐
-│  Telegram   │ ←───────────────→  │  Bridge Server  │ ←─────────────────→ │ Claude CLI│
-│  (手机端)   │                    │  (本地运行)      │                     │           │
-└─────────────┘                    └─────────────────┘                     └───────────┘
+claude-remote/
+├── packages/
+│   ├── relay/          # Relay server (deploy this)
+│   │   ├── src/        # Server source code
+│   │   └── public/     # Mobile web UI
+│   └── shared/         # Shared constants
+├── release/            # Pre-built desktop apps
+├── Dockerfile          # For cloud deployment
+└── README.md
 ```
 
-**关键技术**：
-- 使用 `--input-format stream-json --output-format stream-json` 实现结构化通信
-- 持久进程保持上下文，支持多轮对话
-- `type: "result"` 消息标记响应完成
+## Features
 
----
+- **Multi-session support** - Work on multiple projects simultaneously
+- **Directory access control** - Restrict Claude's file access
+- **Custom server URL** - Use your own relay server
+- **Real-time sync** - Instant message relay via WebSocket
+- **Mobile-optimized UI** - Designed for touch and virtual keyboard
+- **Session persistence** - Continue where you left off
 
-## 后台运行 & 开机自启
+## Security
 
-### macOS (launchd)
+- All communication over HTTPS/WSS (encrypted)
+- Pairing codes expire after 5 minutes
+- Claude CLI runs locally - your code never leaves your machine
+- Relay server is stateless - no message storage
+- You control your own relay server
 
-创建 `~/Library/LaunchAgents/com.claude-tg-bridge.plist`：
+## Requirements
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.claude-tg-bridge</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/usr/local/bin/node</string>
-        <string>/Users/你的用户名/Desktop/cli-remote/dist/index.js</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>WorkingDirectory</key>
-    <string>/Users/你的用户名/Desktop/cli-remote</string>
-    <key>StandardOutPath</key>
-    <string>/tmp/claude-bridge.log</string>
-    <key>StandardErrorPath</key>
-    <string>/tmp/claude-bridge.error.log</string>
-</dict>
-</plist>
-```
+- **Desktop**: macOS (Apple Silicon / Intel)
+- **Mobile**: Any modern browser (Safari, Chrome, Firefox)
+- **Server**: Node.js 18+ or Docker
 
-启用：
-```bash
-launchctl load ~/Library/LaunchAgents/com.claude-tg-bridge.plist
-```
-
-停用：
-```bash
-launchctl unload ~/Library/LaunchAgents/com.claude-tg-bridge.plist
-```
-
----
-
-## 查看日志
+## Development
 
 ```bash
-# 实时查看日志
-tail -f /tmp/bridge.log
+# Install dependencies
+npm install
 
-# 查看最近日志
-cat /tmp/bridge.log | tail -100
+# Build all packages
+cd packages/shared && npm install && npm run build
+cd ../relay && npm install && npm run build
+
+# Run relay server locally
+cd packages/relay && npm run dev
 ```
 
----
+## FAQ
 
-## 环境变量
+**Q: Can multiple people use the same relay server?**
+A: Yes, each pairing code creates an isolated connection.
 
-| 变量 | 说明 |
-|------|------|
-| `TELEGRAM_BOT_TOKEN` | 覆盖配置中的 Bot Token |
-| `AUTH_PASSWORD` | 覆盖配置中的密码 |
-| `CLAUDE_WORKING_DIR` | 覆盖配置中的工作目录 |
+**Q: Is my code uploaded to the relay server?**
+A: No, Claude CLI runs locally. Only messages pass through the relay.
 
----
+**Q: What if the pairing code expires?**
+A: Click Disconnect and Connect again for a new code.
 
-## 注意事项
+**Q: Can I use this without deploying a server?**
+A: No, you need your own relay server. This ensures you control your data.
 
-1. **Claude CLI 路径**：默认使用 `~/.local/bin/claude`，确保 Claude Code 已安装
-2. **工作目录**：Claude 会在配置的工作目录下执行，可以读写该目录的文件
-3. **权限**：使用 `--dangerously-skip-permissions` 跳过权限确认，请确保信任你的操作
-4. **会话重启**：`/restart` 会丢失当前会话的上下文记忆
-5. **进程崩溃**：Bridge 会自动在 3 秒后重启 Claude 进程
+## License
 
----
+MIT
 
-## 下一步计划
+## Credits
 
-- [ ] 多会话支持（多个工作目录/项目）
-- [ ] 会话切换（类似聊天软件）
-- [ ] 中继服务器（远程访问）
-- [ ] 原生移动端 App
+Built for use with [Claude Code](https://github.com/anthropics/claude-code) by Anthropic.
