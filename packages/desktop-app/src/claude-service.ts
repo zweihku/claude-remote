@@ -3,6 +3,7 @@ import WebSocket from 'ws';
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 
 interface Session {
   id: string;
@@ -63,7 +64,9 @@ export class ClaudeService extends EventEmitter {
       return 'claude'; // Fallback to PATH
     } else {
       // macOS / Linux
-      const home = process.env.HOME || '';
+      // In packaged Electron apps, process.env.HOME may be empty,
+      // so use os.homedir() as a reliable fallback
+      const home = process.env.HOME || os.homedir();
       const possiblePaths = [
         path.join(home, '.local', 'bin', 'claude'),
         path.join(home, '.claude', 'bin', 'claude'),
@@ -125,17 +128,27 @@ export class ClaudeService extends EventEmitter {
   }
 
   private async checkClaudeCLI(): Promise<void> {
+    // Log resolved path for debugging
+    console.log('[ClaudeService] CLI path resolved to:', this.claudePath);
+    console.log('[ClaudeService] HOME:', process.env.HOME);
+    console.log('[ClaudeService] os.homedir():', os.homedir());
+    console.log('[ClaudeService] File exists:', fs.existsSync(this.claudePath));
+
     return new Promise((resolve, reject) => {
-      const check = spawn('claude', ['--version'], { shell: true });
+      // Use the resolved absolute path instead of bare 'claude' command,
+      // because packaged Electron apps launched from Finder have a minimal PATH
+      // that doesn't include ~/.local/bin
+      const check = spawn(this.claudePath, ['--version'], { shell: false });
       check.on('close', (code) => {
         if (code === 0) {
+          console.log('[ClaudeService] CLI check passed');
           resolve();
         } else {
-          reject(new Error('Claude CLI not found. Please install Claude Code CLI.'));
+          reject(new Error(`Claude CLI check failed (exit code ${code}) at "${this.claudePath}". Please install Claude Code CLI.`));
         }
       });
-      check.on('error', () => {
-        reject(new Error('Claude CLI not found. Please install Claude Code CLI.'));
+      check.on('error', (err) => {
+        reject(new Error(`Claude CLI not found at "${this.claudePath}" (${err.message}). Please install Claude Code CLI.`));
       });
     });
   }
